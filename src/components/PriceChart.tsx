@@ -153,7 +153,7 @@ export default function PriceChart({ asset }: PriceChartProps) {
         {[
           { label: '24h Volume', value: `$${(asset.volume24h / 1_000_000).toFixed(1)}M` },
           { label: 'Market Cap', value: `$${(asset.marketCap / 1_000_000).toFixed(0)}M` },
-          { label: 'Oracle', value: 'Chainlink' },
+          { label: 'Oracle', value: 'Flare FTSO' },
         ].map((stat, i) => (
           <div key={i} style={{
             background: 'var(--bg-elevated)',

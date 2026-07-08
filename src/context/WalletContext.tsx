@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,187 +26,133 @@ interface WalletContextValue extends WalletState {
 
 export type WalletType = 'metamask' | 'coinbase' | 'walletconnect' | 'injected'
 
-// ─── Chain name map ───────────────────────────────────────────────────────────
-
-const CHAIN_NAMES: Record<number, string> = {
-  1: 'Ethereum',
-  5: 'Goerli',
-  10: 'Optimism',
-  56: 'BNB Chain',
-  137: 'Polygon',
-  42161: 'Arbitrum',
-  43114: 'Avalanche',
-  8453: 'Base',
-  11155111: 'Sepolia',
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function shortAddr(addr: string) {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-}
-
-async function getEthBalance(address: string, provider: any): Promise<string> {
-  try {
-    const hex: string = await provider.request({
-      method: 'eth_getBalance',
-      params: [address, 'latest'],
-    })
-    const eth = Number(BigInt(hex)) / 1e18
-    return eth.toFixed(4)
-  } catch {
-    return '0.0000'
-  }
-}
-
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const WalletContext = createContext<WalletContextValue | null>(null)
 
-const EMPTY_STATE: WalletState = {
-  address: null, shortAddress: null, balance: null,
-  chainId: null, chainName: null, connectedWalletName: null,
-  isConnecting: false, isConnected: false, error: null,
-}
-
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<WalletState>(EMPTY_STATE)
+  const { address, isConnected, isConnecting: isAccountConnecting, chainId, connector } = useAccount()
+  const { disconnect: wagmiDisconnect } = useDisconnect()
+  const { connectAsync, connectors, isPending: isConnectPending } = useConnect()
+  
+  // Fetch balance using wagmi hook
+  const { data: balanceData } = useBalance({
+    address: address ?? undefined,
+  })
 
-  // Active provider reference (for event listeners after connection)
-  const [activeProvider, setActiveProvider] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  // ── Event listeners on active provider ───────────────────────────────────
-  useEffect(() => {
-    const eth = activeProvider ?? (window as any).ethereum
-    if (!eth) return
+  const isConnecting = isAccountConnecting || isConnectPending
+  const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : null
+  const balance = balanceData ? Number(balanceData.formatted).toFixed(4) : null
+  
+  // Fallback map for common chain names
+  const chainName = chainId === 114 ? 'Flare Coston2' : 
+                    chainId === 1 ? 'Ethereum' : 
+                    chainId === 137 ? 'Polygon' : 
+                    chainId === 10 ? 'Optimism' : 
+                    chainId === 42161 ? 'Arbitrum' : 
+                    useAccount().chain?.name ?? null
 
-    const onAccountsChanged = async (accounts: string[]) => {
-      if (accounts.length === 0) {
-        setState(EMPTY_STATE)
-        setActiveProvider(null)
-      } else {
-        const address = accounts[0]
-        const balance = await getEthBalance(address, eth)
-        setState(prev => ({ ...prev, address, shortAddress: shortAddr(address), balance, isConnected: true }))
-      }
-    }
-
-    const onChainChanged = (hex: string) => {
-      const chainId = parseInt(hex, 16)
-      setState(prev => ({ ...prev, chainId, chainName: CHAIN_NAMES[chainId] ?? `Chain ${chainId}` }))
-    }
-
-    eth.on?.('accountsChanged', onAccountsChanged)
-    eth.on?.('chainChanged', onChainChanged)
-
-    return () => {
-      eth.removeListener?.('accountsChanged', onAccountsChanged)
-      eth.removeListener?.('chainChanged', onChainChanged)
-    }
-  }, [activeProvider])
-
-  // ── Auto-reconnect on page load ───────────────────────────────────────────
-  useEffect(() => {
-    const eth = (window as any).ethereum
-    if (!eth) return
-    eth.request?.({ method: 'eth_accounts' })
-      .then(async (accounts: string[]) => {
-        if (accounts.length > 0) {
-          const address = accounts[0]
-          const chainIdHex: string = await eth.request({ method: 'eth_chainId' })
-          const chainId = parseInt(chainIdHex, 16)
-          const balance = await getEthBalance(address, eth)
-          setState({
-            ...EMPTY_STATE,
-            address, shortAddress: shortAddr(address), balance,
-            chainId, chainName: CHAIN_NAMES[chainId] ?? `Chain ${chainId}`,
-            connectedWalletName: null, isConnected: true,
-          })
-          setActiveProvider(eth)
-        }
-      })
-      .catch(() => {})
-  }, [])
+  const connectedWalletName = connector ? connector.name : null
 
   // ── Core connect logic (takes any EIP-1193 provider) ──────────────────────
   const connectProvider = useCallback(async (provider: any, walletName: string) => {
-    setState(prev => ({ ...prev, isConnecting: true, error: null }))
-    try {
-      const accounts: string[] = await provider.request({ method: 'eth_requestAccounts' })
-      if (!accounts?.length) throw new Error('No accounts returned')
+    setError(null)
+    // Find the Wagmi connector that matches the EIP-6963 wallet name or falls back to injected
+    const targetConnector = connectors.find(
+      c => c.name.toLowerCase() === walletName.toLowerCase()
+    ) ?? connectors.find(c => c.id === 'injected')
 
-      const address = accounts[0]
-      const chainIdHex: string = await provider.request({ method: 'eth_chainId' })
-      const chainId = parseInt(chainIdHex, 16)
-      const balance = await getEthBalance(address, provider)
-
-      setActiveProvider(provider)
-      setState({
-        address, shortAddress: shortAddr(address), balance,
-        chainId, chainName: CHAIN_NAMES[chainId] ?? `Chain ${chainId}`,
-        connectedWalletName: walletName,
-        isConnecting: false, isConnected: true, error: null,
-      })
-    } catch (err: any) {
-      const msg =
-        err?.code === 4001 ? 'Connection rejected.' :
-        err?.message ?? 'Connection failed.'
-      setState(prev => ({ ...prev, isConnecting: false, error: msg }))
+    if (targetConnector) {
+      try {
+        await connectAsync({ connector: targetConnector })
+      } catch (err: any) {
+        const msg =
+          err?.code === 4001 ? 'Connection rejected.' :
+          err?.message ?? 'Connection failed.'
+        setError(msg)
+      }
+    } else {
+      setError('No matching wallet connector found.')
     }
-  }, [])
+  }, [connectAsync, connectors])
 
   // ── Legacy connect by wallet type ─────────────────────────────────────────
   const connect = useCallback(async (walletType: WalletType) => {
+    setError(null)
     if (walletType === 'walletconnect') {
-      setState(prev => ({
-        ...prev,
-        error: 'WalletConnect coming soon. Use a browser wallet for now.',
-      }))
+      setError('WalletConnect coming soon. Use a browser wallet for now.')
       return
     }
 
-    const win = window as any
-    let provider: any = win.ethereum
+    let targetConnector = connectors.find(c => {
+      const id = c.id.toLowerCase()
+      const name = c.name.toLowerCase()
+      if (walletType === 'metamask') {
+        return id.includes('metamask') || name.includes('metamask')
+      }
+      if (walletType === 'coinbase') {
+        return id.includes('coinbase') || name.includes('coinbase')
+      }
+      return false
+    })
 
-    // For specific wallet types try to pick the right provider from the array
-    if (walletType === 'metamask' && win.ethereum?.providers) {
-      provider = win.ethereum.providers.find((p: any) => p.isMetaMask && !p.isBraveWallet) ?? win.ethereum
-    }
-    if (walletType === 'coinbase' && win.ethereum?.providers) {
-      provider = win.ethereum.providers.find((p: any) => p.isCoinbaseWallet) ?? win.ethereum
+    if (!targetConnector && walletType === 'injected') {
+      targetConnector = connectors.find(c => c.id === 'injected')
     }
 
-    if (!provider) {
+    // Fallback to injected if specific connector not configured/available
+    if (!targetConnector) {
+      targetConnector = connectors.find(c => c.id === 'injected')
+    }
+
+    if (!targetConnector) {
       const urls: Record<string, string> = {
         metamask: 'https://metamask.io/download/',
         coinbase: 'https://www.coinbase.com/wallet',
         injected: 'https://metamask.io/download/',
       }
       if (walletType !== 'injected') window.open(urls[walletType] ?? urls.metamask, '_blank')
-      setState(prev => ({
-        ...prev,
-        error: 'No wallet detected. Please install a Web3 browser extension.',
-      }))
+      setError('No wallet detected. Please install a Web3 browser extension.')
       return
     }
 
-    const nameMap: Record<string, string> = {
-      metamask: 'MetaMask', coinbase: 'Coinbase Wallet', injected: 'Browser Wallet',
+    try {
+      await connectAsync({ connector: targetConnector })
+    } catch (err: any) {
+      const msg =
+        err?.code === 4001 ? 'Connection rejected.' :
+        err?.message ?? 'Connection failed.'
+      setError(msg)
     }
-    await connectProvider(provider, nameMap[walletType] ?? 'Wallet')
-  }, [connectProvider])
+  }, [connectAsync, connectors])
 
   const disconnect = useCallback(() => {
-    setActiveProvider(null)
-    setState(EMPTY_STATE)
-  }, [])
+    wagmiDisconnect()
+    setError(null)
+  }, [wagmiDisconnect])
 
   const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }))
+    setError(null)
   }, [])
 
   return (
-    <WalletContext.Provider value={{ ...state, connect, connectProvider, disconnect, clearError }}>
+    <WalletContext.Provider value={{
+      address: address ?? null,
+      shortAddress,
+      balance,
+      chainId: chainId ?? null,
+      chainName,
+      connectedWalletName,
+      isConnecting,
+      isConnected,
+      error,
+      connect,
+      connectProvider,
+      disconnect,
+      clearError
+    }}>
       {children}
     </WalletContext.Provider>
   )

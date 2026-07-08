@@ -407,6 +407,14 @@ function AssetTable({
                               color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em',
                             }}>LIVE</span>
                           )}
+                          {asset.id !== 'seur' && (
+                            <span style={{
+                              fontSize: '0.55rem', fontWeight: 700, padding: '1px 5px',
+                              borderRadius: '4px', background: 'rgba(255,255,255,0.04)',
+                              color: 'var(--text-muted)', border: '1px solid var(--border-subtle)',
+                              letterSpacing: '0.05em',
+                            }}>SOON</span>
+                          )}
                         </div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '1px' }}>{asset.name}</div>
                         {asset.description && (
@@ -510,7 +518,7 @@ export default function Markets() {
           <p>
             {isForex
               ? 'Forex prices sourced live from global exchange rate feeds — updated every 60 seconds.'
-              : 'Real-world asset prices tracked on-chain via Chainlink oracles in real-time.'}
+              : 'Real-world asset prices tracked on-chain via Flare FTSO in real-time.'}
           </p>
         </div>
 

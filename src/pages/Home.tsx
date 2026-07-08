@@ -21,8 +21,8 @@ const FEATURES = [
   },
   {
     icon: <Zap size={24} />,
-    title: 'Chainlink Oracles',
-    desc: 'Real-time price feeds from the industry\'s most trusted decentralized oracle network.',
+    title: 'Flare FTSO',
+    desc: 'Real-time price feeds powered by the Flare Fast Transparent Oracle System (FTSO).',
     color: '#06b6d4',
   },
   {
@@ -65,8 +65,8 @@ export default function Home() {
         <div className="hero-bg" />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div className="hero-badge">
-            <div className="live-dot" />
-            Live on Ethereum Mainnet · {ASSETS.length} Synthetic Assets
+            <div className="live-dot" style={{ background: '#10b981' }} />
+            Live on Flare Testnet (Coston2)
           </div>
 
           <h1 className="hero-title">

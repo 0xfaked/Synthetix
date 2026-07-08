@@ -68,11 +68,11 @@ export default function Trade() {
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.8, marginBottom: '16px' }}>
                 <strong style={{ color: 'var(--text-primary)' }}>{selectedAsset.symbol}</strong> is a synthetic token
                 that tracks the real-time price of <strong style={{ color: 'var(--text-primary)' }}>{selectedAsset.name}</strong>.
-                Backed by over-collateralized SNX tokens and powered by Chainlink price feeds, it enables trustless exposure
+                Backed by over-collateralized SNX tokens and powered by Flare FTSO, it enables trustless exposure
                 to {selectedAsset.category} markets without leaving the blockchain.
               </p>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {['Chainlink Oracle', 'ERC-20', 'Ethereum', selectedAsset.category.toUpperCase()].map(tag => (
+                {['Flare FTSO', 'ERC-20', 'Flare', selectedAsset.category.toUpperCase()].map(tag => (
                   <span key={tag} className="badge badge-purple">{tag}</span>
                 ))}
               </div>
