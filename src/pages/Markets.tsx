@@ -7,6 +7,7 @@ import {
 import type { Asset, AssetCategory } from '../data/assets'
 import { ASSETS } from '../data/assets'
 import { useForexPrices } from '../hooks/useForexPrices'
+import { useFtsoPrice } from '../hooks/useFtsoPrice'
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
@@ -128,14 +129,25 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
 
 // ─── Live Price Badge ─────────────────────────────────────────────────────────
 
-function LiveBadge({ isLive, loading, lastUpdated, onRefresh }: {
-  isLive: boolean; loading: boolean; lastUpdated: Date | null; onRefresh: () => void
+function LiveBadge({
+  isLive, loading, lastUpdated, onRefresh,
+  ftsoPrice, ftsoLoading, ftsoError, ftsoLastUpdated
+}: {
+  isLive: boolean
+  loading: boolean
+  lastUpdated: Date | null
+  onRefresh: () => void
+  ftsoPrice: number | null
+  ftsoLoading: boolean
+  ftsoError: string | null
+  ftsoLastUpdated: Date | null
 }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
       fontSize: '0.72rem', color: 'var(--text-muted)',
     }}>
+      {/* Forex API Status */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '5px',
         padding: '4px 10px', borderRadius: '20px',
@@ -149,21 +161,43 @@ function LiveBadge({ isLive, loading, lastUpdated, onRefresh }: {
             : <WifiOff size={10} color="#ef4444" />
         }
         <span style={{ fontWeight: 700, color: loading ? '#f59e0b' : isLive ? '#10b981' : '#ef4444' }}>
-          {loading ? 'Fetching live rates…' : isLive ? 'LIVE' : 'CACHED'}
+          {loading ? 'API Fetching…' : isLive ? 'API LIVE' : 'API CACHED'}
         </span>
       </div>
       {lastUpdated && !loading && (
-        <span>Updated {fmtTime(lastUpdated)}</span>
+        <span>API Updated {fmtTime(lastUpdated)}</span>
       )}
+
+      {/* FTSO Oracle Status */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '5px',
+        padding: '4px 10px', borderRadius: '20px',
+        background: ftsoError ? 'rgba(239,68,68,0.1)' : ftsoPrice ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.05)',
+        border: `1px solid ${ftsoError ? 'rgba(239,68,68,0.25)' : ftsoPrice ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
+      }}>
+        {ftsoLoading
+          ? <RefreshCw size={10} style={{ animation: 'spin 1s linear infinite', color: '#3b82f6' }} />
+          : ftsoPrice
+            ? <Wifi size={10} color="#3b82f6" />
+            : <WifiOff size={10} color="#ef4444" />
+        }
+        <span style={{ fontWeight: 700, color: ftsoLoading ? '#3b82f6' : ftsoPrice ? '#3b82f6' : '#ef4444' }}>
+          {ftsoLoading ? 'FTSO Fetching…' : ftsoPrice ? 'FTSO V2 ACTIVE' : 'FTSO OFFLINE'}
+        </span>
+      </div>
+      {ftsoLastUpdated && !ftsoLoading && (
+        <span>FTSO Updated {fmtTime(ftsoLastUpdated)}</span>
+      )}
+
       <button
         onClick={onRefresh}
-        disabled={loading}
+        disabled={loading || ftsoLoading}
         style={{
           display: 'flex', alignItems: 'center', gap: '4px',
           padding: '3px 9px', borderRadius: '20px',
           background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-subtle)',
           color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600,
-          cursor: loading ? 'not-allowed' : 'pointer',
+          cursor: (loading || ftsoLoading) ? 'not-allowed' : 'pointer',
         }}
       >
         <RefreshCw size={9} /> Refresh
@@ -177,6 +211,7 @@ function LiveBadge({ isLive, loading, lastUpdated, onRefresh }: {
 function SubpageHero({
   config, assets,
   livePrices, isLive, loading, lastUpdated, onRefresh,
+  ftsoPrice, ftsoLoading, ftsoError, ftsoLastUpdated,
 }: {
   config: SubPageConfig
   assets: Asset[]
@@ -185,14 +220,28 @@ function SubpageHero({
   loading?: boolean
   lastUpdated?: Date | null
   onRefresh?: () => void
+  ftsoPrice: number | null
+  ftsoLoading: boolean
+  ftsoError: string | null
+  ftsoLastUpdated: Date | null
 }) {
   const isForex = config.id === 'forex'
 
-  // Use live prices for forex if available
-  const enriched = assets.map(a => ({
-    ...a,
-    price: (isForex && livePrices?.[a.id]) ? livePrices[a.id] : a.price,
-  }))
+  // Use live prices for forex if available, with FTSO override for sEUR/USD
+  const enriched = assets.map(a => {
+    let price = a.price
+    if (isForex) {
+      if (a.id === 'seur') {
+        price = ftsoPrice !== null ? ftsoPrice : (livePrices?.[a.id] ?? a.price)
+      } else {
+        price = livePrices?.[a.id] ?? a.price
+      }
+    }
+    return {
+      ...a,
+      price,
+    }
+  })
 
   const totalVol = enriched.reduce((s, a) => s + a.volume24h, 0)
   const gainers = enriched.filter(a => a.changePercent24h >= 0).length
@@ -249,7 +298,16 @@ function SubpageHero({
 
           {/* Live badge — only for forex */}
           {isForex && onRefresh && (
-            <LiveBadge isLive={isLive ?? false} loading={loading ?? false} lastUpdated={lastUpdated ?? null} onRefresh={onRefresh} />
+            <LiveBadge
+              isLive={isLive ?? false}
+              loading={loading ?? false}
+              lastUpdated={lastUpdated ?? null}
+              onRefresh={onRefresh}
+              ftsoPrice={ftsoPrice}
+              ftsoLoading={ftsoLoading}
+              ftsoError={ftsoError}
+              ftsoLastUpdated={ftsoLastUpdated}
+            />
           )}
         </div>
       </div>
@@ -261,25 +319,53 @@ function SubpageHero({
 
 function AssetTable({
   assets, accentColor, isForex, livePrices,
+  ftsoPrice, ftsoLoading, ftsoError
 }: {
   assets: Asset[]
   accentColor: string
   isForex?: boolean
   livePrices?: Record<string, number>
+  ftsoPrice: number | null
+  ftsoLoading: boolean
+  ftsoError: string | null
 }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'change' | 'volume'>('volume')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // Build enriched assets (inject live price for forex)
+  // Build enriched assets (inject live price for forex, with FTSO override for sEUR/USD)
   const enriched = useMemo(() =>
-    assets.map(a => ({
-      ...a,
-      price: (isForex && livePrices?.[a.id]) ? livePrices[a.id] : a.price,
-      isLivePrice: isForex && !!livePrices?.[a.id],
-    })),
-    [assets, isForex, livePrices]
+    assets.map(a => {
+      const isSeur = a.id === 'seur'
+      let price = a.price
+      let isLivePrice = false
+      let isFtso = false
+
+      if (isForex) {
+        if (isSeur) {
+          if (ftsoPrice !== null) {
+            price = ftsoPrice
+            isLivePrice = true
+            isFtso = true
+          } else {
+            price = livePrices?.[a.id] ?? a.price
+            isLivePrice = !!livePrices?.[a.id]
+          }
+        } else {
+          price = livePrices?.[a.id] ?? a.price
+          isLivePrice = !!livePrices?.[a.id]
+        }
+      }
+
+      return {
+        ...a,
+        price,
+        isLivePrice,
+        isFtso,
+      }
+    }),
+    [assets, isForex, livePrices, ftsoPrice]
   )
 
   const filtered = useMemo(() => {
@@ -400,12 +486,20 @@ function AssetTable({
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontWeight: 700, fontSize: '0.87rem' }}>{asset.symbol}</span>
-                          {hasLive && (
+                          {hasLive && !(asset as any).isFtso && (
                             <span style={{
                               fontSize: '0.55rem', fontWeight: 700, padding: '1px 5px',
                               borderRadius: '20px', background: 'rgba(16,185,129,0.15)',
                               color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em',
                             }}>LIVE</span>
+                          )}
+                          {(asset as any).isFtso && (
+                            <span style={{
+                              fontSize: '0.55rem', fontWeight: 700, padding: '1px 5px',
+                              borderRadius: '4px', background: 'rgba(59,130,246,0.15)',
+                              color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em',
+                              border: '1px solid rgba(59,130,246,0.3)',
+                            }}>FTSO</span>
                           )}
                           {asset.id !== 'seur' && (
                             <span style={{
@@ -426,11 +520,30 @@ function AssetTable({
 
                   {/* price */}
                   <td style={{ padding: '13px 15px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.87rem' }}>
-                    <span style={{ color: hasLive ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                      {fmtPrice(asset.price)}
-                    </span>
-                    {asset.unit && (
-                      <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'inherit', fontWeight: 400 }}>{asset.unit}</div>
+                    {asset.id === 'seur' && ftsoLoading && ftsoPrice === null ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                        <RefreshCw size={12} className="animate-spin" style={{ animation: 'spin 1.5s linear infinite', color: '#3b82f6' }} />
+                        <span style={{ color: 'var(--text-muted)' }}>Fetching...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                          {asset.id === 'seur' && ftsoError && (
+                            <span
+                              title={`FTSO Oracle Offline: ${ftsoError}. Showing API fallback.`}
+                              style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center', cursor: 'help' }}
+                            >
+                              <WifiOff size={12} style={{ marginRight: '2px' }} />
+                            </span>
+                          )}
+                          <span style={{ color: hasLive ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                            {fmtPrice(asset.price)}
+                          </span>
+                        </div>
+                        {asset.unit && (
+                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'inherit', fontWeight: 400 }}>{asset.unit}</div>
+                        )}
+                      </>
                     )}
                   </td>
 
@@ -498,13 +611,62 @@ export default function Markets() {
   // Live forex prices hook — always fetched, only used when on Forex tab
   const { prices: forexPrices, loading: fxLoading, isLive: fxLive, lastUpdated: fxUpdated, refresh: fxRefresh, error: fxError } = useForexPrices()
 
-  const config = SUBPAGES.find(s => s.id === activePage)!
-  const assets = useMemo(() => ASSETS.filter(a => a.category === config.category), [config])
+  // Live FTSO price hook
+  const { price: ftsoPrice, loading: ftsoLoading, error: ftsoError, lastUpdated: ftsoLastUpdated, refresh: ftsoRefresh } = useFtsoPrice()
 
-  const topGainers = [...ASSETS].sort((a, b) => b.changePercent24h - a.changePercent24h).slice(0, 3)
-  const topLosers  = [...ASSETS].sort((a, b) => a.changePercent24h - b.changePercent24h).slice(0, 3)
+  const config = SUBPAGES.find(s => s.id === activePage)!
+  
+  // Combined refresh that handles both API and FTSO updates
+  const handleRefresh = async () => {
+    if (activePage === 'forex') {
+      await Promise.allSettled([fxRefresh(), ftsoRefresh()])
+    } else {
+      fxRefresh()
+    }
+  }
 
   const isForex = activePage === 'forex'
+
+  // Memoize assets, overriding sEUR/USD with FTSO price if available
+  const assets = useMemo(() => {
+    const list = ASSETS.filter(a => a.category === config.category)
+    return list.map(a => {
+      if (isForex && a.id === 'seur') {
+        return {
+          ...a,
+          price: ftsoPrice !== null ? ftsoPrice : (forexPrices[a.id] ?? a.price),
+        }
+      }
+      return {
+        ...a,
+        price: (isForex && forexPrices[a.id]) ? forexPrices[a.id] : a.price,
+      }
+    })
+  }, [config, isForex, forexPrices, ftsoPrice])
+
+  const topGainers = useMemo(() => {
+    return [...ASSETS].map(a => {
+      if (a.category === 'forex') {
+        return {
+          ...a,
+          price: a.id === 'seur' && ftsoPrice !== null ? ftsoPrice : (forexPrices[a.id] ?? a.price),
+        }
+      }
+      return a
+    }).sort((a, b) => b.changePercent24h - a.changePercent24h).slice(0, 3)
+  }, [forexPrices, ftsoPrice])
+
+  const topLosers = useMemo(() => {
+    return [...ASSETS].map(a => {
+      if (a.category === 'forex') {
+        return {
+          ...a,
+          price: a.id === 'seur' && ftsoPrice !== null ? ftsoPrice : (forexPrices[a.id] ?? a.price),
+        }
+      }
+      return a
+    }).sort((a, b) => a.changePercent24h - b.changePercent24h).slice(0, 3)
+  }, [forexPrices, ftsoPrice])
 
   return (
     <>
@@ -517,19 +679,35 @@ export default function Markets() {
           <h1>Global Synthetic Markets</h1>
           <p>
             {isForex
-              ? 'Forex prices sourced live from global exchange rate feeds — updated every 60 seconds.'
+              ? 'Forex prices sourced live from global exchange rate feeds and Flare FTSO V2 — updated in real-time.'
               : 'Real-world asset prices tracked on-chain via Flare FTSO in real-time.'}
           </p>
         </div>
 
         {/* FX error banner */}
-        {isForex && fxError && !fxLoading && (
+        {isForex && (fxError || ftsoError) && !fxLoading && !ftsoLoading && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
-            borderRadius: 'var(--radius-md)', padding: '10px 16px', marginBottom: '20px', fontSize: '0.78rem', color: '#f59e0b',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            background: 'rgba(245,158,11,0.08)',
+            border: '1px solid rgba(245,158,11,0.25)',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 16px',
+            marginBottom: '20px',
+            fontSize: '0.78rem',
+            color: '#f59e0b',
           }}>
-            <WifiOff size={14} /> {fxError}
+            {fxError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <WifiOff size={14} /> API Feeds: {fxError}
+              </div>
+            )}
+            {ftsoError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <WifiOff size={14} /> Flare FTSO V2 Oracle: {ftsoError} (using API fallback)
+              </div>
+            )}
           </div>
         )}
 
@@ -546,14 +724,13 @@ export default function Markets() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {data.map(a => {
-                  const displayPrice = (a.category === 'forex' && forexPrices[a.id]) ? forexPrices[a.id] : a.price
                   return (
                     <div key={a.id}
                       style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
                       onClick={() => navigate(`/trade?asset=${a.id}`)}>
                       <span style={{ fontSize: '1rem' }}>{a.icon}</span>
                       <span style={{ fontWeight: 600, fontSize: '0.8rem', flex: 1 }}>{a.symbol}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{fmtPrice(displayPrice)}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{fmtPrice(a.price)}</span>
                       <span className={`badge ${positive ? 'badge-green' : 'badge-red'}`}>
                         {positive ? '+' : ''}{a.changePercent24h.toFixed(2)}%
                       </span>
@@ -592,7 +769,7 @@ export default function Markets() {
               >
                 {sp.icon}
                 {sp.label}
-                {sp.id === 'forex' && fxLive && (
+                {sp.id === 'forex' && (fxLive || ftsoPrice) && (
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981', flexShrink: 0 }} />
                 )}
                 <span style={{
@@ -615,7 +792,11 @@ export default function Markets() {
           isLive={fxLive}
           loading={fxLoading}
           lastUpdated={fxUpdated}
-          onRefresh={fxRefresh}
+          onRefresh={handleRefresh}
+          ftsoPrice={ftsoPrice}
+          ftsoLoading={ftsoLoading}
+          ftsoError={ftsoError}
+          ftsoLastUpdated={ftsoLastUpdated}
         />
 
         {/* Asset Table */}
@@ -624,6 +805,9 @@ export default function Markets() {
           accentColor={config.accentColor}
           isForex={isForex}
           livePrices={isForex ? forexPrices : undefined}
+          ftsoPrice={ftsoPrice}
+          ftsoLoading={ftsoLoading}
+          ftsoError={ftsoError}
         />
 
       </div>
