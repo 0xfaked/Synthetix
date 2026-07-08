@@ -13,8 +13,11 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.56.2",
     "lucide-react": "^1.17.0",
     "react-router-dom": "^7.17.0",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "viem": "^2.21.14",
+    "wagmi": "^2.12.7"
   }
 }

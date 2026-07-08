@@ -133,7 +133,7 @@ function WalletRow({
 export default function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const {
     isConnected, isConnecting, address, shortAddress, balance,
-    chainName, connectedWalletName, error,
+    chainId, chainName, connectedWalletName, error,
     connect, connectProvider, disconnect, clearError,
   } = useWallet()
 
@@ -269,7 +269,7 @@ export default function WalletModal({ open, onClose }: { open: boolean; onClose:
                 <div style={{ display: 'flex', gap: '20px' }}>
                   <div>
                     <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>Balance</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.92rem', fontWeight: 700 }}>{balance} ETH</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.92rem', fontWeight: 700 }}>{balance} {chainId === 114 ? 'FLR' : 'ETH'}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>Network</div>
@@ -285,7 +285,7 @@ export default function WalletModal({ open, onClose }: { open: boolean; onClose:
               <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
                 {[
                   { label: 'Copy Address', icon: <Copy size={13} />, onClick: copyAddress },
-                  { label: 'Etherscan', icon: <ExternalLink size={13} />, onClick: () => window.open(`https://etherscan.io/address/${address}`, '_blank') },
+                  { label: chainId === 114 ? 'Coston2 Explorer' : 'Etherscan', icon: <ExternalLink size={13} />, onClick: () => window.open(chainId === 114 ? `https://coston2-explorer.flare.network/address/${address}` : `https://etherscan.io/address/${address}`, '_blank') },
                 ].map(btn => (
                   <button
                     key={btn.label}

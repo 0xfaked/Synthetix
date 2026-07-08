@@ -18,7 +18,7 @@ export default function Navbar() {
   const { isConnected, shortAddress, balance, chainName, chainId } = useWallet()
 
   // Chain color indicator
-  const chainColor = chainId === 1 ? '#627EEA' : chainId === 137 ? '#8247E5' : chainId === 10 ? '#FF0420' : chainId === 42161 ? '#28A0F0' : '#10b981'
+  const chainColor = chainId === 114 ? '#E31937' : chainId === 1 ? '#627EEA' : chainId === 137 ? '#8247E5' : chainId === 10 ? '#FF0420' : chainId === 42161 ? '#28A0F0' : '#10b981'
 
   return (
     <>
@@ -54,7 +54,7 @@ export default function Navbar() {
             {/* Network badge */}
             <div className="network-badge" style={{ cursor: 'default' }}>
               <div className="live-dot" style={{ background: chainColor, boxShadow: `0 0 6px ${chainColor}` }} />
-              {isConnected && chainName ? chainName : 'Ethereum'}
+              {isConnected && chainName ? chainName : 'Flare'}
             </div>
 
             {/* Connect / Account button */}
@@ -85,7 +85,7 @@ export default function Navbar() {
                     borderLeft: '1px solid rgba(255,255,255,0.1)',
                     paddingLeft: '8px',
                   }}>
-                    {balance} ETH
+                    {balance} {chainId === 114 ? 'FLR' : 'ETH'}
                   </span>
                 )}
                 <ChevronDown size={12} style={{ color: 'var(--text-muted)' }} />

@@ -55,7 +55,10 @@ export default function Stake() {
       <title>Stake — SynthX</title>
       <div className="container" style={{ paddingBottom: '80px' }}>
         <div className="page-header">
-          <h1>Stake & Earn</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1>Stake & Earn</h1>
+            <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--yellow)', border: '1px solid rgba(245,158,11,0.3)', padding: '4px 8px', fontSize: '0.75rem', fontWeight: 700, borderRadius: '6px' }}>Coming Soon</span>
+          </div>
           <p>Stake SNX to back the protocol, earn trading fees, and receive staking rewards.</p>
         </div>
 

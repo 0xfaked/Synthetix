@@ -214,7 +214,7 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
         </button>
 
         <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '12px', lineHeight: 1.5 }}>
-          Synthetic assets are backed by crypto collateral and track real-world prices via Chainlink oracles.
+          Synthetic assets are backed by crypto collateral and track real-world prices via Flare FTSO.
         </p>
       </div>
 
