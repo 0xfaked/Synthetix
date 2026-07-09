@@ -9,21 +9,17 @@ import WalletModal from '../components/WalletModal'
 // Mock portfolio data
 const HOLDINGS = [
   { assetId: 'sxau', amount: 0.4521, entryPrice: 2210.00 },
-  { assetId: 'sspy', amount: 1.8340, entryPrice: 510.00 },
-  { assetId: 'snvda', amount: 0.2180, entryPrice: 980.00 },
   { assetId: 'seur', amount: 450.00, entryPrice: 1.0780 },
   { assetId: 'sxag', amount: 12.500, entryPrice: 28.40 },
 ]
 
 const TX_HISTORY = [
   { type: 'MINT', symbol: 'sXAU', amount: '0.4521', value: '$1,060.17', time: '2h ago', hash: '0x4f2a...' },
-  { type: 'REDEEM', symbol: 'sSPY', amount: '0.5000', value: '$268.91', time: '1d ago', hash: '0x8c3b...' },
-  { type: 'MINT', symbol: 'sNVDA', amount: '0.2180', value: '$245.04', time: '3d ago', hash: '0x2d1e...' },
   { type: 'MINT', symbol: 'sEUR', amount: '450.00', value: '$486.30', time: '5d ago', hash: '0x9f7a...' },
   { type: 'MINT', symbol: 'sXAG', amount: '12.500', value: '$355.00', time: '1w ago', hash: '0x3e2c...' },
 ]
 
-const PIE_COLORS = ['#FFD700', '#8B0000', '#76B900', '#003399', '#C0C0C0']
+const PIE_COLORS = ['#FFD700', '#003399', '#C0C0C0']
 
 function formatPrice(price: number): string {
   if (price >= 1000) return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
