@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp, TrendingDown, Search, Globe, BarChart2, Landmark,
-  PieChart, RefreshCw, Wifi, WifiOff,
+  PieChart, RefreshCw, Wifi, WifiOff, Coins,
 } from 'lucide-react'
 import type { Asset, AssetCategory } from '../data/assets'
 import { ASSETS } from '../data/assets'
@@ -39,7 +39,7 @@ function fmtTime(d: Date | null): string {
 
 // ─── Subpage config ───────────────────────────────────────────────────────────
 
-type SubPage = 'forex' | 'commodities' | 'bonds' | 'etfs'
+type SubPage = 'forex' | 'commodities' | 'bonds' | 'etfs' | 'metals'
 
 interface SubPageConfig {
   id: SubPage
@@ -102,6 +102,18 @@ const SUBPAGES: SubPageConfig[] = [
     gradientFrom: 'rgba(139,92,246,0.18)',
     gradientTo: 'rgba(236,72,153,0.06)',
     description: 'Diversified exposure to global indices. Trade synthetic S&P 500, NASDAQ, and sector ETFs on-chain.',
+  },
+  {
+    id: 'metals',
+    label: 'Metals',
+    icon: <Coins size={16} />,
+    category: 'metals',
+    heroTitle: 'Precious Metals',
+    heroSubtitle: 'Commodities & Metals',
+    accentColor: '#fbbf24',
+    gradientFrom: 'rgba(251,191,36,0.18)',
+    gradientTo: 'rgba(251,191,36,0.06)',
+    description: 'Trade synthetic precious metals on-chain with instant pricing and deep liquidity.',
   },
 ]
 

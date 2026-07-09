@@ -34,7 +34,7 @@ const FEATURES = [
 ]
 
 const FEATURED_ASSETS = ASSETS.filter(a =>
-  ['sxau', 'sspy', 'seur', 'snvda'].includes(a.id)
+  ['sxau', 'sxag', 'seur'].includes(a.id)
 )
 
 export default function Home() {
