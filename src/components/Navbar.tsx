@@ -15,7 +15,7 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [walletOpen, setWalletOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { isConnected, shortAddress, balance, chainName, chainId } = useWallet()
+  const { isConnected, shortAddress, balance, chainName, chainId, chainSymbol } = useWallet()
 
   // Chain color indicator
   const chainColor = chainId === 114 ? '#E31937' : chainId === 1 ? '#627EEA' : chainId === 137 ? '#8247E5' : chainId === 10 ? '#FF0420' : chainId === 42161 ? '#28A0F0' : '#10b981'
@@ -85,7 +85,7 @@ export default function Navbar() {
                     borderLeft: '1px solid rgba(255,255,255,0.1)',
                     paddingLeft: '8px',
                   }}>
-                    {balance} {chainId === 114 ? 'FLR' : 'ETH'}
+                    {balance} {chainSymbol ?? 'ETH'}
                   </span>
                 )}
                 <ChevronDown size={12} style={{ color: 'var(--text-muted)' }} />

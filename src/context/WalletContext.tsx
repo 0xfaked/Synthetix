@@ -9,6 +9,9 @@ export interface WalletState {
   balance: string | null
   chainId: number | null
   chainName: string | null
+  chainSymbol: string | null
+  explorerUrl: string | null
+  explorerName: string | null
   connectedWalletName: string | null   // name of the connected wallet (e.g. "MetaMask")
   isConnecting: boolean
   isConnected: boolean
@@ -31,7 +34,7 @@ export type WalletType = 'metamask' | 'coinbase' | 'walletconnect' | 'injected'
 const WalletContext = createContext<WalletContextValue | null>(null)
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const { address, isConnected, isConnecting: isAccountConnecting, chainId, connector } = useAccount()
+  const { address, isConnected, isConnecting: isAccountConnecting, chainId, connector, chain } = useAccount()
   const { disconnect: wagmiDisconnect } = useDisconnect()
   const { connectAsync, connectors, isPending: isConnectPending } = useConnect()
   
@@ -47,12 +50,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const balance = balanceData ? Number(balanceData.formatted).toFixed(4) : null
   
   // Fallback map for common chain names
-  const chainName = chainId === 114 ? 'Flare Coston2' : 
-                    chainId === 1 ? 'Ethereum' : 
-                    chainId === 137 ? 'Polygon' : 
-                    chainId === 10 ? 'Optimism' : 
-                    chainId === 42161 ? 'Arbitrum' : 
-                    useAccount().chain?.name ?? null
+  const chainName = chain?.name ?? 
+                    (chainId === 114 ? 'Flare Testnet Coston2' : 
+                     chainId === 1 ? 'Ethereum' : 
+                     chainId === 137 ? 'Polygon' : 
+                     chainId === 10 ? 'Optimism' : 
+                     chainId === 42161 ? 'Arbitrum' : null)
+
+  const chainSymbol = chain?.nativeCurrency?.symbol ?? (chainId === 114 ? 'C2FLR' : 'ETH')
+  const explorerUrl = chain?.blockExplorers?.default?.url ?? (chainId === 114 ? 'https://coston2-explorer.flare.network' : 'https://etherscan.io')
+  const explorerName = chain?.blockExplorers?.default?.name ?? (chainId === 114 ? 'Coston2 Explorer' : 'Etherscan')
 
   const connectedWalletName = connector ? connector.name : null
 
@@ -144,6 +151,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       balance,
       chainId: chainId ?? null,
       chainName,
+      chainSymbol,
+      explorerUrl,
+      explorerName,
       connectedWalletName,
       isConnecting,
       isConnected,

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 import { useDetectedWallets } from '../hooks/useDetectedWallets'
+import { useAccount, useConfig, useBalance, useChainId } from 'wagmi'
 
 // ─── Popular / fallback wallets (shown if not auto-detected) ─────────────────
 
@@ -132,10 +133,24 @@ function WalletRow({
 
 export default function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const {
-    isConnected, isConnecting, address, shortAddress, balance,
-    chainId, chainName, connectedWalletName, error,
+    isConnecting, connectedWalletName, error,
     connect, connectProvider, disconnect, clearError,
   } = useWallet()
+
+  const { address, isConnected } = useAccount()
+  const chainId = useChainId()
+  const config = useConfig()
+  const { data: balanceData } = useBalance({
+    address: address ?? undefined,
+  })
+
+  const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : null
+  const activeChain = config.chains.find(c => c.id === chainId)
+  const chainName = activeChain?.name ?? 'Unknown network'
+  const chainSymbol = balanceData?.symbol ?? activeChain?.nativeCurrency?.symbol ?? 'ETH'
+  const formattedBalance = balanceData ? Number(balanceData.formatted).toFixed(4) : '0.0000'
+  const explorerUrl = activeChain?.blockExplorers?.default?.url
+  const explorerName = activeChain?.blockExplorers?.default?.name ?? 'Explorer'
 
   const { detected, scanning } = useDetectedWallets()
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -269,7 +284,7 @@ export default function WalletModal({ open, onClose }: { open: boolean; onClose:
                 <div style={{ display: 'flex', gap: '20px' }}>
                   <div>
                     <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>Balance</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.92rem', fontWeight: 700 }}>{balance} {chainId === 114 ? 'FLR' : 'ETH'}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.92rem', fontWeight: 700 }}>{formattedBalance} {chainSymbol}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>Network</div>
@@ -285,7 +300,7 @@ export default function WalletModal({ open, onClose }: { open: boolean; onClose:
               <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
                 {[
                   { label: 'Copy Address', icon: <Copy size={13} />, onClick: copyAddress },
-                  { label: chainId === 114 ? 'Coston2 Explorer' : 'Etherscan', icon: <ExternalLink size={13} />, onClick: () => window.open(chainId === 114 ? `https://coston2-explorer.flare.network/address/${address}` : `https://etherscan.io/address/${address}`, '_blank') },
+                  { label: explorerName ?? 'Explorer', icon: <ExternalLink size={13} />, onClick: () => window.open(explorerUrl ? `${explorerUrl}/address/${address}` : `https://etherscan.io/address/${address}`, '_blank') },
                 ].map(btn => (
                   <button
                     key={btn.label}
