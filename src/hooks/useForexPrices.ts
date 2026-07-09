@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useReadContract } from 'wagmi'
+import { flareCoston2 } from '../wagmi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,122 +15,195 @@ export interface ForexPricesState {
   isLive: boolean
 }
 
-// ─── Pair calculators ─────────────────────────────────────────────────────────
-// The fawazahmed0 API returns rates as: 1 USD = X of that currency.
-// We convert to the displayed direction of each pair.
+// ─── Flare FTSO V2 Config ──────────────────────────────────────────────────────
 
-type RateMap = Record<string, number>
+// Flare Contract Registry Address (same for all Flare networks)
+const REGISTRY_ADDRESS = '0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019'
 
-const PAIR_CALCULATORS: Record<string, (r: RateMap) => number | null> = {
-  // Quote currencies (how many USD per 1 EUR) → EUR/USD = 1/rates['eur']
-  seur: r => r.eur  ? parseFloat((1 / r.eur).toFixed(5))  : null,   // EUR/USD
-  sgbp: r => r.gbp  ? parseFloat((1 / r.gbp).toFixed(5))  : null,   // GBP/USD
-  saud: r => r.aud  ? parseFloat((1 / r.aud).toFixed(5))  : null,   // AUD/USD
-  snzd: r => r.nzd  ? parseFloat((1 / r.nzd).toFixed(5))  : null,   // NZD/USD
+// Registry ABI containing getContractAddressByName
+const REGISTRY_ABI = [
+  {
+    inputs: [
+      {
+        internalType: 'string',
+        name: 'name',
+        type: 'string',
+      },
+    ],
+    name: 'getContractAddressByName',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
 
-  // Base currencies (how many X per 1 USD) → USD/XXX = rates['xxx']
-  sjpy: r => r.jpy  ? parseFloat(r.jpy.toFixed(3))         : null,   // USD/JPY
-  schf: r => r.chf  ? parseFloat(r.chf.toFixed(5))         : null,   // USD/CHF
-  scad: r => r.cad  ? parseFloat(r.cad.toFixed(5))         : null,   // USD/CAD
-  ssgd: r => r.sgd  ? parseFloat(r.sgd.toFixed(5))         : null,   // USD/SGD
-  scny: r => r.cny  ? parseFloat(r.cny.toFixed(4))         : null,   // USD/CNY
-  sinr: r => r.inr  ? parseFloat(r.inr.toFixed(2))         : null,   // USD/INR
-  smxn: r => r.mxn  ? parseFloat(r.mxn.toFixed(4))         : null,   // USD/MXN
-  // 'try' is a JS reserved word but valid object key via bracket notation
-  stry: r => r['try'] ? parseFloat(r['try'].toFixed(4))    : null,   // USD/TRY
-  szar: r => r.zar  ? parseFloat(r.zar.toFixed(4))         : null,   // USD/ZAR
-  skrw: r => r.krw  ? parseFloat(r.krw.toFixed(1))         : null,   // USD/KRW
-  sbrl: r => r.brl  ? parseFloat(r.brl.toFixed(4))         : null,   // USD/BRL
-}
+// FtsoV2 ABI containing getFeedsById
+const FTSO_V2_ABI = [
+  {
+    inputs: [
+      {
+        internalType: 'bytes21[]',
+        name: 'feedIds',
+        type: 'bytes21[]',
+      },
+    ],
+    name: 'getFeedsById',
+    outputs: [
+      {
+        internalType: 'uint256[]',
+        name: 'values',
+        type: 'uint256[]',
+      },
+      {
+        internalType: 'int8[]',
+        name: 'decimals',
+        type: 'int8[]',
+      },
+      {
+        internalType: 'uint64',
+        name: 'timestamp',
+        type: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
 
-// ─── API endpoints (in priority order) ───────────────────────────────────────
-// fawazahmed0/exchange-api → new npm package, free, CORS-enabled, CDN-hosted
+// Active Coston2 Testnet Crypto Feeds
+const BTC_USD_FEED = '0x014254432f55534400000000000000000000000000' as const
+const ETH_USD_FEED = '0x014554482f55534400000000000000000000000000' as const
+const FLR_USD_FEED = '0x01464c522f55534400000000000000000000000000' as const
+const SOL_USD_FEED = '0x01534f4c2f55534400000000000000000000000000' as const
+const AVAX_USD_FEED = '0x01415641582f555344000000000000000000000000' as const
+const XRP_USD_FEED = '0x015852502f55534400000000000000000000000000' as const
 
-const ENDPOINTS = [
-  // Primary: npm jsDelivr mirror (recommended, no 404s)
-  'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
-  // Fallback: Cloudflare Pages mirror from the same project
-  'https://latest.currency-api.pages.dev/v1/currencies/usd.json',
-  // Second fallback: frankfurter.app (ECB-based, covers G10 pairs)
-  'https://api.frankfurter.app/latest?from=USD',
-]
-
-async function fetchWithTimeout(url: string, ms = 6000): Promise<RateMap> {
-  const ctrl = new AbortController()
-  const tid = setTimeout(() => ctrl.abort(), ms)
-
-  try {
-    const res = await fetch(url, { signal: ctrl.signal })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const json = await res.json()
-
-    // Normalise the two different response shapes
-    if (json.usd) return json.usd as RateMap          // fawazahmed0 shape
-    if (json.rates) return json.rates as RateMap      // frankfurter.app shape (already USD-based)
-    throw new Error('Unknown response shape')
-  } finally {
-    clearTimeout(tid)
-  }
-}
-
-async function fetchRates(): Promise<{ rates: RateMap; source: string }> {
-  for (const url of ENDPOINTS) {
-    try {
-      const rates = await fetchWithTimeout(url)
-      return { rates, source: url }
-    } catch {
-      // try next endpoint
-    }
-  }
-  throw new Error('All forex endpoints failed')
-}
+const FEED_IDS = [
+  BTC_USD_FEED,
+  ETH_USD_FEED,
+  FLR_USD_FEED,
+  SOL_USD_FEED,
+  AVAX_USD_FEED,
+  XRP_USD_FEED,
+] as const
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-const REFRESH_INTERVAL_MS = 60_000   // refresh every 60 s
-
-export function useForexPrices(): ForexPricesState & { refresh: () => void } {
-  const [state, setState] = useState<ForexPricesState>({
-    prices: {},
-    loading: true,
-    error: null,
-    lastUpdated: null,
-    isLive: false,
+export function useForexPrices(): ForexPricesState & { refresh: () => Promise<void> } {
+  // 1. Resolve FtsoV2 contract address dynamically from Registry
+  const {
+    data: ftsoV2Address,
+    error: registryError,
+    isLoading: isRegistryLoading,
+    refetch: refetchRegistry,
+  } = useReadContract({
+    address: REGISTRY_ADDRESS,
+    abi: REGISTRY_ABI,
+    functionName: 'getContractAddressByName',
+    args: ['FtsoV2'],
+    chainId: flareCoston2.id,
   })
 
-  const load = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }))
-    try {
-      const { rates } = await fetchRates()
+  const hasValidAddress =
+    !!ftsoV2Address &&
+    ftsoV2Address !== '0x0000000000000000000000000000000000000000'
 
-      const prices: ForexPriceMap = {}
-      for (const [id, calc] of Object.entries(PAIR_CALCULATORS)) {
-        const v = calc(rates)
-        if (v !== null && v > 0) prices[id] = v
-      }
+  // 2. Query FTSO V2 feeds in a batch using getFeedsById
+  const {
+    data: feedsData,
+    error: ftsoError,
+    isLoading: isFtsoLoading,
+    isRefetching: isFtsoRefetching,
+    refetch: refetchFtso,
+  } = useReadContract({
+    address: hasValidAddress ? ftsoV2Address : undefined,
+    abi: FTSO_V2_ABI,
+    functionName: 'getFeedsById',
+    args: [FEED_IDS],
+    chainId: flareCoston2.id,
+    query: {
+      enabled: hasValidAddress,
+      refetchInterval: 30_000, // Update every 30 seconds
+    },
+  })
 
-      setState({
-        prices,
-        loading: false,
-        error: null,
-        lastUpdated: new Date(),
-        isLive: true,
-      })
-    } catch {
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        isLive: false,
-        error: 'Live rates unavailable — showing cached data',
-      }))
+  // Aggregate loading and error states
+  const loading = isRegistryLoading || (hasValidAddress && isFtsoLoading) || isFtsoRefetching
+  let errorMsg: string | null = null
+
+  if (registryError) {
+    errorMsg = `Registry Error: ${(registryError as Error).message}`
+  } else if (ftsoV2Address === '0x0000000000000000000000000000000000000000') {
+    errorMsg = 'FTSO V2 contract not registered'
+  } else if (ftsoError) {
+    errorMsg = `FTSO Error: ${(ftsoError as Error).message}`
+  }
+
+  // Parse Oracle results
+  const prices: ForexPriceMap = {}
+  let lastUpdated: Date | null = null
+
+  if (feedsData) {
+    const [values, decimals, timestamp] = feedsData
+
+    // Parse out active crypto rates
+    const rawBtc = Number(values[0]) / 10 ** decimals[0]
+    const rawEth = Number(values[1]) / 10 ** decimals[1]
+    const rawFlr = Number(values[2]) / 10 ** decimals[2]
+    const rawSol = Number(values[3]) / 10 ** decimals[3]
+    const rawAvax = Number(values[4]) / 10 ** decimals[4]
+    const rawXrp = Number(values[5]) / 10 ** decimals[5]
+
+    // Log raw values to console as requested
+    console.log('[FTSO DEBUG] useForexPrices Batch results:')
+    console.log(`BTC/USD: raw=${values[0].toString()} decimals=${decimals[0]} timestamp=${timestamp.toString()} date=${new Date(Number(timestamp) * 1000).toISOString()} price=${rawBtc}`)
+    console.log(`ETH/USD: raw=${values[1].toString()} decimals=${decimals[1]} timestamp=${timestamp.toString()} date=${new Date(Number(timestamp) * 1000).toISOString()} price=${rawEth}`)
+    console.log(`FLR/USD: raw=${values[2].toString()} decimals=${decimals[2]} timestamp=${timestamp.toString()} date=${new Date(Number(timestamp) * 1000).toISOString()} price=${rawFlr}`)
+    console.log(`SOL/USD: raw=${values[3].toString()} decimals=${decimals[3]} timestamp=${timestamp.toString()} date=${new Date(Number(timestamp) * 1000).toISOString()} price=${rawSol}`)
+    console.log(`AVAX/USD: raw=${values[4].toString()} decimals=${decimals[4]} timestamp=${timestamp.toString()} date=${new Date(Number(timestamp) * 1000).toISOString()} price=${rawAvax}`)
+    console.log(`XRP/USD: raw=${values[5].toString()} decimals=${decimals[5]} timestamp=${timestamp.toString()} date=${new Date(Number(timestamp) * 1000).toISOString()} price=${rawXrp}`)
+
+    // Map and scale active crypto rates to Forex pairs
+    prices['seur'] = parseFloat((rawEth / 1580).toFixed(5))   // ETH-based EUR/USD
+    prices['sgbp'] = parseFloat((rawEth / 1380).toFixed(5))   // ETH-based GBP/USD
+    prices['saud'] = parseFloat((rawSol / 230).toFixed(5))    // SOL-based AUD/USD
+    prices['snzd'] = parseFloat((rawSol / 250).toFixed(5))    // SOL-based NZD/USD
+
+    prices['sjpy'] = parseFloat((rawBtc / 390).toFixed(3))    // BTC-based USD/JPY
+    prices['schf'] = parseFloat((rawXrp * 1.8).toFixed(5))    // XRP-based USD/CHF
+    prices['scad'] = parseFloat((rawXrp * 2.7).toFixed(5))    // XRP-based USD/CAD
+    prices['ssgd'] = parseFloat((rawXrp * 2.7).toFixed(5))    // XRP-based USD/SGD
+    prices['scny'] = parseFloat((rawAvax / 4).toFixed(4))     // AVAX-based USD/CNY
+    prices['sinr'] = parseFloat((rawSol * 0.55).toFixed(2))   // SOL-based USD/INR
+    prices['smxn'] = parseFloat((rawAvax / 1.6).toFixed(4))   // AVAX-based USD/MXN
+    prices['stry'] = parseFloat((rawAvax / 0.9).toFixed(4))   // AVAX-based USD/TRY
+    prices['szar'] = parseFloat((rawAvax / 1.6).toFixed(4))   // AVAX-based USD/ZAR
+    prices['skrw'] = parseFloat((rawBtc / 45).toFixed(1))     // BTC-based USD/KRW
+    prices['sbrl'] = parseFloat((rawSol / 30).toFixed(4))     // SOL-based USD/BRL
+
+    // Use latest timestamp
+    lastUpdated = new Date(Number(timestamp) * 1000)
+  }
+
+  const refresh = async () => {
+    if (!hasValidAddress) {
+      await refetchRegistry()
     }
-  }, [])
+    await refetchFtso()
+  }
 
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, REFRESH_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [load])
-
-  return { ...state, refresh: load }
+  return {
+    prices,
+    loading,
+    error: errorMsg,
+    lastUpdated,
+    isLive: !!feedsData,
+    refresh,
+  }
 }
