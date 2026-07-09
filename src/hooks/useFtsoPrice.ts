@@ -60,8 +60,8 @@ const FTSO_V2_ABI = [
   },
 ] as const
 
-// sEUR/USD Feed ID: Category 02 (Forex), Name "EUR/USD" (hex: 4555522f555344), padded to 21 bytes
-const EUR_USD_FEED_ID = '0x024555522f55534400000000000000000000000000' as const
+// FLR/USD Feed ID: Category 01 (Crypto), Name "FLR/USD" (hex: 464c522f555344), padded to 21 bytes
+const FLR_USD_FEED_ID = '0x01464c522f55534400000000000000000000000000' as const
 
 export interface FtsoPriceState {
   price: number | null
@@ -72,7 +72,7 @@ export interface FtsoPriceState {
 }
 
 /**
- * Custom hook to fetch EUR/USD price feed dynamically from Flare's FTSO V2 oracle
+ * Custom hook to fetch FLR/USD price feed dynamically from Flare's FTSO V2 oracle
  * on Coston2 testnet by first querying the Flare Contract Registry.
  */
 export function useFtsoPrice(): FtsoPriceState {
@@ -105,11 +105,39 @@ export function useFtsoPrice(): FtsoPriceState {
     address: hasValidAddress ? ftsoV2Address : undefined,
     abi: FTSO_V2_ABI,
     functionName: 'getFeedById',
-    args: [EUR_USD_FEED_ID],
+    args: [FLR_USD_FEED_ID],
     chainId: flareCoston2.id,
     query: {
       enabled: hasValidAddress,
       refetchInterval: 30_000, // Update feed value every 30 seconds
+    },
+  })
+
+  // Query EUR/USD feed value
+  const {
+    data: eurUsdFeedData,
+  } = useReadContract({
+    address: hasValidAddress ? ftsoV2Address : undefined,
+    abi: FTSO_V2_ABI,
+    functionName: 'getFeedById',
+    args: ['0x024555522f55534400000000000000000000000000'],
+    chainId: flareCoston2.id,
+    query: {
+      enabled: hasValidAddress,
+    },
+  })
+
+  // Query USD/JPY feed value
+  const {
+    data: usdJpyFeedData,
+  } = useReadContract({
+    address: hasValidAddress ? ftsoV2Address : undefined,
+    abi: FTSO_V2_ABI,
+    functionName: 'getFeedById',
+    args: ['0x025553442f4a505900000000000000000000000000'],
+    chainId: flareCoston2.id,
+    query: {
+      enabled: hasValidAddress,
     },
   })
 
@@ -131,8 +159,21 @@ export function useFtsoPrice(): FtsoPriceState {
 
   if (feedData) {
     const [value, decimals, timestamp] = feedData
+    console.log('[FTSO DEBUG] Raw feedData: value=' + value.toString() + ' decimals=' + decimals + ' timestamp=' + timestamp.toString())
     price = Number(value) / 10 ** decimals
     lastUpdated = new Date(Number(timestamp) * 1000)
+  }
+
+  if (eurUsdFeedData) {
+    const [value, decimals, timestamp] = eurUsdFeedData
+    const readableDate = new Date(Number(timestamp) * 1000).toISOString()
+    console.log('[FTSO DEBUG] EUR/USD raw feed: value=' + value.toString() + ' decimals=' + decimals + ' timestamp=' + timestamp.toString() + ' date=' + readableDate)
+  }
+
+  if (usdJpyFeedData) {
+    const [value, decimals, timestamp] = usdJpyFeedData
+    const readableDate = new Date(Number(timestamp) * 1000).toISOString()
+    console.log('[FTSO DEBUG] USD/JPY raw feed: value=' + value.toString() + ' decimals=' + decimals + ' timestamp=' + timestamp.toString() + ' date=' + readableDate)
   }
 
   const refresh = async () => {

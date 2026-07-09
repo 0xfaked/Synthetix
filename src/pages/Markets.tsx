@@ -334,28 +334,17 @@ function AssetTable({
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'change' | 'volume'>('volume')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // Build enriched assets (inject live price for forex, with FTSO override for sEUR/USD)
+  // Build enriched assets (inject live price for forex)
   const enriched = useMemo(() =>
     assets.map(a => {
-      const isSeur = a.id === 'seur'
       let price = a.price
       let isLivePrice = false
       let isFtso = false
 
       if (isForex) {
-        if (isSeur) {
-          if (ftsoPrice !== null) {
-            price = ftsoPrice
-            isLivePrice = true
-            isFtso = true
-          } else {
-            price = livePrices?.[a.id] ?? a.price
-            isLivePrice = !!livePrices?.[a.id]
-          }
-        } else {
-          price = livePrices?.[a.id] ?? a.price
-          isLivePrice = !!livePrices?.[a.id]
-        }
+        price = livePrices?.[a.id] ?? a.price
+        isLivePrice = !!livePrices?.[a.id]
+        isFtso = isLivePrice
       }
 
       return {
@@ -365,7 +354,7 @@ function AssetTable({
         isFtso,
       }
     }),
-    [assets, isForex, livePrices, ftsoPrice]
+    [assets, isForex, livePrices]
   )
 
   const filtered = useMemo(() => {
@@ -627,46 +616,40 @@ export default function Markets() {
 
   const isForex = activePage === 'forex'
 
-  // Memoize assets, overriding sEUR/USD with FTSO price if available
+  // Memoize assets, using live FTSOv2 prices for forex assets
   const assets = useMemo(() => {
     const list = ASSETS.filter(a => a.category === config.category)
     return list.map(a => {
-      if (isForex && a.id === 'seur') {
-        return {
-          ...a,
-          price: ftsoPrice !== null ? ftsoPrice : (forexPrices[a.id] ?? a.price),
-        }
-      }
       return {
         ...a,
         price: (isForex && forexPrices[a.id]) ? forexPrices[a.id] : a.price,
       }
     })
-  }, [config, isForex, forexPrices, ftsoPrice])
+  }, [config, isForex, forexPrices])
 
   const topGainers = useMemo(() => {
     return [...ASSETS].map(a => {
       if (a.category === 'forex') {
         return {
           ...a,
-          price: a.id === 'seur' && ftsoPrice !== null ? ftsoPrice : (forexPrices[a.id] ?? a.price),
+          price: forexPrices[a.id] ?? a.price,
         }
       }
       return a
     }).sort((a, b) => b.changePercent24h - a.changePercent24h).slice(0, 3)
-  }, [forexPrices, ftsoPrice])
+  }, [forexPrices])
 
   const topLosers = useMemo(() => {
     return [...ASSETS].map(a => {
       if (a.category === 'forex') {
         return {
           ...a,
-          price: a.id === 'seur' && ftsoPrice !== null ? ftsoPrice : (forexPrices[a.id] ?? a.price),
+          price: forexPrices[a.id] ?? a.price,
         }
       }
       return a
     }).sort((a, b) => a.changePercent24h - b.changePercent24h).slice(0, 3)
-  }, [forexPrices, ftsoPrice])
+  }, [forexPrices])
 
   return (
     <>

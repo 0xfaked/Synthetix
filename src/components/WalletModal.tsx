@@ -61,7 +61,7 @@ function WalletRow({
   name: string
   description?: string
   badge?: string
-  onClick: () => void
+  onClick: () => void | Promise<void>
   loading?: boolean
   disabled?: boolean
 }) {
