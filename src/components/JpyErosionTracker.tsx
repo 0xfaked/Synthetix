@@ -1,6 +1,65 @@
 import { useState, useEffect } from 'react'
 import { TrendingDown, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react'
 
+// Helper function to call Gemini / OpenRouter API with fallbacks
+const fetchAiInsight = async (beforeUsd: number, afterUsd: number, lossPercent: number): Promise<string> => {
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY
+  const openRouterKey = import.meta.env.VITE_OPENROUTER_API_KEY
+  
+  const prompt = `Write a single, short sentence summarizing this currency erosion insight: if you held ¥100,000 JPY one year ago, it was worth $${beforeUsd.toFixed(2)} USD, but today it is only worth $${afterUsd.toFixed(2)} USD (a loss of ${lossPercent.toFixed(2)}% in USD value due to yen depreciation). Explain that even a stable, developed economy's currency like JPY is not immune to depreciation. Do not use any markdown formatting or quotes. Keep it to exactly one short sentence.`
+
+  if (geminiKey) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 60, temperature: 0.7 }
+          })
+        }
+      )
+      if (response.ok) {
+        const json = await response.json()
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+        if (text) return text.replace(/^["']|["']$/g, '') // Strip quotes if returned
+      }
+    } catch (e) {
+      console.warn('Gemini API call failed, falling back:', e)
+    }
+  }
+
+  if (openRouterKey) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openRouterKey}`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 60,
+          temperature: 0.7
+        })
+      })
+      if (response.ok) {
+        const json = await response.json()
+        const text = json.choices?.[0]?.message?.content?.trim()
+        if (text) return text.replace(/^["']|["']$/g, '')
+      }
+    } catch (e) {
+      console.warn('OpenRouter API call failed, falling back:', e)
+    }
+  }
+
+  // Fallback sentence
+  return "Even a highly developed and stable economy like Japan is not immune to currency erosion, as JPY's depreciation against USD over the past year has silently reduced JPY-holders' global purchasing power."
+}
+
 export default function JpyErosionTracker() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -15,10 +74,13 @@ export default function JpyErosionTracker() {
     lossPercent: number
     isCached: boolean
   } | null>(null)
+  const [insight, setInsight] = useState<string>('')
+  const [loadingInsight, setLoadingInsight] = useState(false)
 
   const fetchRates = async () => {
     setLoading(true)
     setError(null)
+    setInsight('')
     try {
       const today = new Date()
       const oneYearAgo = new Date(today)
@@ -74,6 +136,20 @@ export default function JpyErosionTracker() {
         lossPercent,
         isCached
       })
+
+      // Fetch AI insight in the background so rates display immediately
+      setLoadingInsight(true)
+      fetchAiInsight(beforeUsd, afterUsd, lossPercent)
+        .then(res => {
+          setInsight(res)
+          setLoadingInsight(false)
+        })
+        .catch(err => {
+          console.error('Failed to fetch AI insight:', err)
+          setInsight("Even a highly developed and stable economy like Japan is not immune to currency erosion, as JPY's depreciation against USD over the past year has silently reduced JPY-holders' global purchasing power.")
+          setLoadingInsight(false)
+        })
+
     } catch (err: any) {
       setError(err.message || 'An error occurred while fetching currency data.')
     } finally {
@@ -177,7 +253,27 @@ export default function JpyErosionTracker() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px', color: 'var(--accent-secondary)', fontWeight: 700 }}>
           <Sparkles size={11} /> AI INSIGHT
         </div>
-        "Even a highly developed and stable economy like Japan is not immune to currency erosion, as JPY's depreciation against USD over the past year has silently reduced JPY-holders' global purchasing power."
+        {loadingInsight ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '4px 0' }}>
+            <div style={{
+              height: '10px',
+              background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)',
+              backgroundSize: '200% 100%',
+              borderRadius: '4px',
+              animation: 'shimmer 1.5s infinite linear'
+            }} />
+            <div style={{
+              height: '10px',
+              background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)',
+              backgroundSize: '200% 100%',
+              borderRadius: '4px',
+              width: '80%',
+              animation: 'shimmer 1.5s infinite linear'
+            }} />
+          </div>
+        ) : (
+          `"${insight}"`
+        )}
       </div>
     </div>
   )
