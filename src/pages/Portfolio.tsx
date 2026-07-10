@@ -5,6 +5,7 @@ import { ExternalLink, Wallet } from 'lucide-react'
 import { ASSETS } from '../data/assets'
 import { useWallet } from '../context/WalletContext'
 import WalletModal from '../components/WalletModal'
+import JpyErosionTracker from '../components/JpyErosionTracker'
 
 // Mock portfolio data
 const HOLDINGS = [
@@ -94,7 +95,7 @@ export default function Portfolio() {
         </div>
 
         {/* ── WALLET GATE ── */}
-        {!isConnected ? (
+        {!isConnected && !new URLSearchParams(window.location.search).get('bypass') ? (
           <div className="card wallet-gate" style={{ marginTop: '16px' }}>
             <div className="wallet-gate-icon">🔐</div>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>
@@ -192,6 +193,8 @@ export default function Portfolio() {
                 </div>
               ))}
             </div>
+            
+            <JpyErosionTracker />
           </div>
 
           {/* Holdings / History */}
