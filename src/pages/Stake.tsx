@@ -55,10 +55,7 @@ export default function Stake() {
       <title>Stake — SynthX</title>
       <div className="container" style={{ paddingBottom: '80px' }}>
         <div className="page-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1>Stake & Earn</h1>
-            <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--yellow)', border: '1px solid rgba(245,158,11,0.3)', padding: '4px 8px', fontSize: '0.75rem', fontWeight: 700, borderRadius: '6px' }}>Coming Soon</span>
-          </div>
+          <h1>Stake & Earn</h1>
           <p>Stake SNX to back the protocol, earn trading fees, and receive staking rewards.</p>
         </div>
 
@@ -71,6 +68,65 @@ export default function Stake() {
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 700 }}>{s.value}</div>
             </div>
           ))}
+        </div>
+
+        {/* Educational Explainer Row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '20px',
+          marginBottom: '32px'
+        }}>
+          {/* Why Stake? Card */}
+          <div className="card" style={{
+            padding: '24px',
+            background: 'radial-gradient(circle at 10% 10%, rgba(124,58,237,0.06) 0%, transparent 60%), var(--bg-card)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <span style={{ fontSize: '1.5rem' }}>🏛️</span>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', margin: 0 }}>
+                Why Stake?
+              </h3>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: '12px' }}>
+              Stakers provide the collateral backing that lets the whole synthetic asset system remain solvent and trustworthy.
+            </p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: '0' }}>
+              By locking SNX as collateral, you secure the protocol's liquidity pools, enabling seamless zero-slippage trades while earning a share of overall network growth.
+            </p>
+          </div>
+
+          {/* How It Works Card */}
+          <div className="card" style={{ padding: '24px' }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '16px', fontSize: '1rem' }}>
+              How Staking Works
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                { n: '1', title: 'Stake SNX tokens into the pool', desc: 'Deposit your SNX tokens into any active staking pool.' },
+                { n: '2', title: 'Your stake helps back the protocol\'s synthetic assets (over-collateralization)', desc: 'Your locked stake helps guarantee solvency and back every synthetic asset in circulation.' },
+                { n: '3', title: 'Earn rewards from three sources', desc: 'Receive rewards from protocol inflation, a share of trading fees, and bonus incentives.' },
+                { n: '4', title: 'Unstake anytime after the lock period', desc: 'Reclaim your staked SNX and all accumulated rewards once the lock expires.' },
+              ].map(step => (
+                <div key={step.n} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                  <div style={{
+                    minWidth: 28, height: 28, borderRadius: '50%',
+                    background: 'rgba(124,58,237,0.15)',
+                    border: '1px solid var(--border-accent)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-secondary)',
+                  }}>{step.n}</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '2px' }}>{step.title}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>{step.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Pools + Stake Form */}
