@@ -7,9 +7,9 @@ import SwapBox from '../components/SwapBox'
 
 export default function Trade() {
   const [searchParams] = useSearchParams()
-  const assetId = searchParams.get('asset') ?? 'sxau'
+  const assetId = searchParams.get('asset') ?? 'seur'
   const [selectedAsset, setSelectedAsset] = useState<Asset>(
-    ASSETS.find(a => a.id === assetId) ?? ASSETS.find(a => a.id === 'sxau')!
+    ASSETS.find(a => a.id === assetId) ?? ASSETS.find(a => a.id === 'seur')!
   )
 
   useEffect(() => {
