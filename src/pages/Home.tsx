@@ -48,14 +48,26 @@ export default function Home() {
       <div className="ticker-wrap">
         <div className="ticker-inner">
           {TICKER_ASSETS.map((asset, i) => (
-            <div key={`${asset.id}-${i}`} className="ticker-item">
+            <button
+              key={`${asset.id}-${i}`}
+              type="button"
+              className="ticker-item"
+              onClick={() => navigate(`/trade?asset=${asset.id}`)}
+              id={`home-ticker-${asset.id}-${i}`}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'inherit',
+              }}
+            >
               <span>{asset.icon}</span>
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{asset.symbol}</span>
               <span style={{ color: 'var(--text-secondary)' }}>{formatPrice(asset.price)}</span>
               <span className={asset.changePercent24h >= 0 ? 'change-positive' : 'change-negative'}>
                 {asset.changePercent24h >= 0 ? '+' : ''}{asset.changePercent24h.toFixed(2)}%
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>

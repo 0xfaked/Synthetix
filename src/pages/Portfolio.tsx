@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { ExternalLink, Wallet } from 'lucide-react'
+import { ExternalLink, Wallet, PlusCircle } from 'lucide-react'
+import { useReadContracts, useReadContract, useWriteContract, useWalletClient } from 'wagmi'
+import { formatEther } from 'viem'
+import { SYNTHX_CONTRACT_ADDRESS, SYNTHX_ABI, ERC20_ABI } from '../config/contracts'
 import { ASSETS } from '../data/assets'
 import { useWallet } from '../context/WalletContext'
 import WalletModal from '../components/WalletModal'
@@ -9,18 +12,18 @@ import JpyErosionTracker from '../components/JpyErosionTracker'
 
 // Mock portfolio data
 const HOLDINGS = [
-  { assetId: 'sxau', amount: 0.4521, entryPrice: 2210.00 },
+  { assetId: 'sgbp', amount: 850.00, entryPrice: 1.2650 },
   { assetId: 'seur', amount: 450.00, entryPrice: 1.0780 },
-  { assetId: 'sxag', amount: 12.500, entryPrice: 28.40 },
+  { assetId: 'sjpy', amount: 125000, entryPrice: 156.20 },
 ]
 
 const TX_HISTORY = [
-  { type: 'MINT', symbol: 'sXAU', amount: '0.4521', value: '$1,060.17', time: '2h ago', hash: '0x4f2a...' },
-  { type: 'MINT', symbol: 'sEUR', amount: '450.00', value: '$486.30', time: '5d ago', hash: '0x9f7a...' },
-  { type: 'MINT', symbol: 'sXAG', amount: '12.500', value: '$355.00', time: '1w ago', hash: '0x3e2c...' },
+  { type: 'MINT', symbol: 'sGBP/USD', amount: '850.00', value: '$1,075.25', time: '2h ago', hash: '0x4f2a...' },
+  { type: 'MINT', symbol: 'sEUR/USD', amount: '450.00', value: '$486.30', time: '5d ago', hash: '0x9f7a...' },
+  { type: 'MINT', symbol: 'sUSD/JPY', amount: '125,000', value: '$794.00', time: '1w ago', hash: '0x3e2c...' },
 ]
 
-const PIE_COLORS = ['#FFD700', '#003399', '#C0C0C0']
+const PIE_COLORS = ['#012169', '#003399', '#BC002D']
 
 function formatPrice(price: number): string {
   if (price >= 1000) return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -33,15 +36,63 @@ export default function Portfolio() {
   const [activeTab, setActiveTab] = useState<'holdings' | 'history'>('holdings')
   const [walletOpen, setWalletOpen] = useState(false)
   const { isConnected, shortAddress, address } = useWallet()
+  const { data: walletClient } = useWalletClient()
 
-  const holdings = HOLDINGS.map(h => {
-    const asset = ASSETS.find(a => a.id === h.assetId)!
-    const currentValue = h.amount * asset.price
-    const costBasis = h.amount * h.entryPrice
-    const pnl = currentValue - costBasis
-    const pnlPct = (pnl / costBasis) * 100
-    return { ...h, asset, currentValue, pnl, pnlPct }
+  // 1. Fetch token addresses for all assets from the Factory
+  const { data: tokenAddresses } = useReadContracts({
+    contracts: ASSETS.map(a => ({
+      address: SYNTHX_CONTRACT_ADDRESS as `0x${string}`,
+      abi: SYNTHX_ABI,
+      functionName: 'synthTokens',
+      args: [a.id]
+    }))
   })
+
+  // 2. Fetch real on-chain ERC20 balances for those addresses
+  const { data: balancesData } = useReadContracts({
+    contracts: ASSETS.map((a, i) => ({
+      address: (tokenAddresses?.[i]?.result as `0x${string}`) || '0x0000000000000000000000000000000000000000',
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address]
+    }))
+  })
+
+  // 3. Fetch user's unused FLR collateral
+  const { data: collateralBalance } = useReadContract({
+    address: SYNTHX_CONTRACT_ADDRESS as `0x${string}`,
+    abi: SYNTHX_ABI,
+    functionName: 'collateralBalances',
+    args: [address]
+  })
+  
+  const { writeContract, isPending: isWithdrawing } = useWriteContract()
+  const collateralValue = collateralBalance ? parseFloat(formatEther(collateralBalance as bigint)) : 0;
+
+  // Dynamically build holdings from on-chain data
+  const holdings = (balancesData || []).map((res, i) => {
+    if (!res.result) return null;
+    const balanceStr = formatEther(res.result as bigint);
+    const amount = parseFloat(balanceStr);
+    
+    // Only show assets the user actually owns
+    if (amount <= 0) return null;
+
+    const asset = ASSETS[i];
+    const tokenAddress = tokenAddresses?.[i]?.result as string;
+    
+    // For pairs like sUSD/JPY, the price is how much JPY 1 USD buys (e.g., 157.42). So USD value = amount / price.
+    // For pairs like sEUR/USD, the price is how much USD 1 EUR buys (e.g., 1.08). So USD value = amount * price.
+    const isUsdBase = asset.symbol.startsWith('sUSD/');
+    const currentValue = isUsdBase ? amount / asset.price : amount * asset.price;
+    
+    // Since we don't track entry price on-chain in this mock, we assume 0% PNL for now
+    const costBasis = currentValue; 
+    const pnl = 0;
+    const pnlPct = 0;
+    
+    return { assetId: asset.id, amount, entryPrice: asset.price, asset, tokenAddress, currentValue, pnl, pnlPct };
+  }).filter(Boolean) as any[];
 
   const totalValue = holdings.reduce((s, h) => s + h.currentValue, 0)
   const totalPnl = holdings.reduce((s, h) => s + h.pnl, 0)
@@ -127,7 +178,7 @@ export default function Portfolio() {
           <>
 
         {/* Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
           <div className="card" style={{ padding: '24px', borderTop: '2px solid var(--accent-primary)' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Portfolio Value</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 700 }}>
@@ -149,6 +200,37 @@ export default function Portfolio() {
               {holdings.length}
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Open positions</div>
+          </div>
+          <div className="card" style={{ padding: '24px', borderTop: '2px solid var(--accent-secondary)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Deposited Collateral (FLR)</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 700 }}>
+              {collateralValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Manual deposits only. Reverse swaps now pay FLR straight back to your wallet.
+            </div>
+            <button
+               disabled={collateralValue <= 0 || isWithdrawing}
+               onClick={() => {
+                 writeContract({
+                   address: SYNTHX_CONTRACT_ADDRESS as `0x${string}`,
+                   abi: SYNTHX_ABI,
+                   functionName: 'withdrawCollateral',
+                   args: [collateralBalance]
+                 }, {
+                   onSuccess: () => alert('✅ Collateral withdrawn successfully!'),
+                   onError: (e) => alert('❌ Withdrawal failed: ' + e.message)
+                 })
+               }}
+               style={{ 
+                 marginTop: '10px', width: '100%', padding: '6px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', 
+                 background: collateralValue > 0 ? 'var(--accent-primary)' : 'var(--bg-elevated)', 
+                 color: collateralValue > 0 ? 'white' : 'var(--text-muted)', border: 'none', cursor: collateralValue > 0 ? 'pointer' : 'not-allowed',
+                 fontWeight: 600
+               }}
+            >
+              {isWithdrawing ? 'Withdrawing...' : 'Withdraw Deposited FLR'}
+            </button>
           </div>
         </div>
 
@@ -225,7 +307,42 @@ export default function Portfolio() {
                     <span style={{ fontSize: '1.4rem' }}>{h.asset.icon}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{h.asset.symbol}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{h.asset.symbol}</span>
+                          <button 
+                            title="Add to MetaMask"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.ethereum && h.tokenAddress) {
+                                const providers = (window.ethereum as any).providers || [window.ethereum];
+                                const metaMaskProvider = providers.find((p: any) => p.isMetaMask && !p.isTrust && !p.isTrustWallet) || window.ethereum;
+
+                                const tokenSymbol = h.assetId === 'seur' ? 'sEUR' : 
+                                                    h.assetId === 'sgbp' ? 'sGBP' : 
+                                                    h.assetId === 'sjpy' ? 'sJPY' : 
+                                                    h.assetId.toUpperCase();
+
+                                metaMaskProvider.request({
+                                  method: 'wallet_watchAsset',
+                                  params: {
+                                    type: 'ERC20',
+                                    options: {
+                                      address: h.tokenAddress as string,
+                                      symbol: tokenSymbol, // Must be alphanumeric, no slashes!
+                                      decimals: 18
+                                    },
+                                  },
+                                }).catch((err: any) => alert('Failed to open MetaMask: ' + err.message));
+                              }
+                            }}
+                            style={{ 
+                              background: 'transparent', border: 'none', color: 'var(--text-muted)', 
+                              cursor: 'pointer', display: 'flex', alignItems: 'center' 
+                            }}
+                          >
+                            <PlusCircle size={14} />
+                          </button>
+                        </div>
                         <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                           ${h.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
