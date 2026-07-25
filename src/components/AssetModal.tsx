@@ -9,6 +9,7 @@ interface AssetModalProps {
   mode: ModalMode
   onSelect: (asset: Asset | typeof CRYPTO_TOKENS[number]) => void
   onClose: () => void
+  livePrices?: Record<string, number | undefined>
 }
 
 function formatPrice(price: number): string {
@@ -17,7 +18,7 @@ function formatPrice(price: number): string {
   return `$${price.toFixed(6)}`
 }
 
-export default function AssetModal({ mode, onSelect, onClose }: AssetModalProps) {
+export default function AssetModal({ mode, onSelect, onClose, livePrices }: AssetModalProps) {
   const [query, setQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState<AssetCategory | 'all'>('all')
 
@@ -82,7 +83,7 @@ export default function AssetModal({ mode, onSelect, onClose }: AssetModalProps)
                     <div className="modal-item-symbol">{token.symbol}</div>
                     <div className="modal-item-name">{token.name}</div>
                   </div>
-                  <span className="modal-item-price">{formatPrice(token.price)}</span>
+                  <span className="modal-item-price">{formatPrice(livePrices?.[token.symbol.toLowerCase()] ?? token.price)}</span>
                 </div>
               ))}
             </>
@@ -101,7 +102,7 @@ export default function AssetModal({ mode, onSelect, onClose }: AssetModalProps)
                           <div className="modal-item-name">{asset.name}</div>
                         </div>
                         <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                          <div className="modal-item-price">{formatPrice(asset.price)}</div>
+                          <div className="modal-item-price">{formatPrice(livePrices?.[asset.id] ?? asset.price)}</div>
                           <div style={{ fontSize: '0.7rem', color: asset.changePercent24h >= 0 ? 'var(--green)' : 'var(--red)' }}>
                             {asset.changePercent24h >= 0 ? '+' : ''}{asset.changePercent24h.toFixed(2)}%
                           </div>
@@ -120,7 +121,7 @@ export default function AssetModal({ mode, onSelect, onClose }: AssetModalProps)
                     <div className="modal-item-name">{asset.name}</div>
                   </div>
                   <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                    <div className="modal-item-price">{formatPrice(asset.price)}</div>
+                    <div className="modal-item-price">{formatPrice(livePrices?.[asset.id] ?? asset.price)}</div>
                     <div style={{ fontSize: '0.7rem', color: asset.changePercent24h >= 0 ? 'var(--green)' : 'var(--red)' }}>
                       {asset.changePercent24h >= 0 ? '+' : ''}{asset.changePercent24h.toFixed(2)}%
                     </div>

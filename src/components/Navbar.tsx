@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useState } from 'react'
-import { Zap, Menu, X, ChevronDown } from 'lucide-react'
+import { Zap, ChevronDown } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 import WalletModal from './WalletModal'
 
@@ -9,12 +9,10 @@ const NAV_LINKS = [
   { to: '/trade', label: 'Trade' },
   { to: '/markets', label: 'Markets' },
   { to: '/portfolio', label: 'Portfolio' },
-  { to: '/stake', label: 'Stake' },
 ]
 
 export default function Navbar() {
   const [walletOpen, setWalletOpen] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
   const { isConnected, shortAddress, balance, chainName, chainId, chainSymbol } = useWallet()
 
   // Chain color indicator
@@ -52,9 +50,9 @@ export default function Navbar() {
           {/* Actions */}
           <div className="navbar-actions">
             {/* Network badge */}
-            <div className="network-badge" style={{ cursor: 'default' }}>
-              <div className="live-dot" style={{ background: chainColor, boxShadow: `0 0 6px ${chainColor}` }} />
-              {isConnected && chainName ? chainName : 'Flare'}
+            <div className="network-badge" style={{ cursor: 'default', background: 'transparent', border: 'none', padding: '4px 8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              <div className="live-dot" style={{ background: chainColor, width: 6, height: 6, boxShadow: 'none' }} />
+              {isConnected && chainName ? chainName.replace('Flare Testnet Coston2', 'Coston2').replace(' Testnet', '') : 'Flare'}
             </div>
 
             {/* Connect / Account button */}
@@ -64,31 +62,24 @@ export default function Navbar() {
                 onClick={() => setWalletOpen(true)}
                 id="wallet-account-btn"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: 'rgba(99,102,241,0.12)',
-                  border: '1px solid rgba(99,102,241,0.35)',
-                  padding: '7px 14px',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '5px 10px',
+                  borderRadius: 'var(--radius-pill)',
+                  color: 'var(--text-secondary)',
                 }}
               >
                 {/* Avatar dot */}
                 <div style={{
-                  width: 20, height: 20, borderRadius: '50%',
+                  width: 16, height: 16, borderRadius: '50%',
                   background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   flexShrink: 0,
                 }} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 500 }}>
                   {shortAddress}
                 </span>
-                {balance && (
-                  <span style={{
-                    fontSize: '0.72rem', color: 'var(--text-muted)',
-                    borderLeft: '1px solid rgba(255,255,255,0.1)',
-                    paddingLeft: '8px',
-                  }}>
-                    {balance} {chainSymbol ?? 'ETH'}
-                  </span>
-                )}
-                <ChevronDown size={12} style={{ color: 'var(--text-muted)' }} />
+                <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
             ) : (
               <button
@@ -100,48 +91,8 @@ export default function Navbar() {
               </button>
             )}
 
-            {/* Mobile hamburger */}
-            <button
-              className="btn-ghost btn"
-              style={{ padding: '8px', width: 36, height: 36 }}
-              onClick={() => setMobileOpen(!mobileOpen)}
-              id="mobile-menu-btn"
-            >
-              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
           </div>
         </div>
-
-        {/* Mobile nav drawer */}
-        {mobileOpen && (
-          <div style={{
-            position: 'fixed', top: 72, left: 0, right: 0, bottom: 0,
-            background: 'rgba(8,10,15,0.98)', zIndex: 99,
-            display: 'flex', flexDirection: 'column', padding: '24px',
-            gap: '8px', borderTop: '1px solid var(--border-subtle)'
-          }}>
-            {NAV_LINKS.map(link => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.end}
-                onClick={() => setMobileOpen(false)}
-                className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-                style={{ fontSize: '1.1rem', padding: '14px 16px' }}
-              >
-                {link.label}
-              </NavLink>
-            ))}
-            <div style={{ marginTop: '16px' }}>
-              <button
-                className="btn btn-primary btn-full"
-                onClick={() => { setMobileOpen(false); setWalletOpen(true) }}
-              >
-                {isConnected ? shortAddress : 'Connect Wallet'}
-              </button>
-            </div>
-          </div>
-        )}
       </nav>
 
       {/* Wallet Modal */}

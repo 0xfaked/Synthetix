@@ -21,7 +21,7 @@ export default function Trade() {
     <>
       <title>Trade — SynthX</title>
       <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-subtle)', padding: '12px 0' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
+        <div className="hide-scrollbar" style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
           {ASSETS.map(asset => (
             <button
               key={asset.id}
@@ -110,7 +110,7 @@ export default function Trade() {
 
           {/* Right: Swap Box */}
           <div style={{ position: 'sticky', top: '90px' }}>
-            <SwapBox defaultReceive={selectedAsset} />
+            <SwapBox defaultReceive={selectedAsset} onAssetSelect={setSelectedAsset} />
           </div>
         </div>
       </div>

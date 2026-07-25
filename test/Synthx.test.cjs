@@ -84,4 +84,31 @@ describe("Synthx FX redemption logic", function () {
     expect(balanceAfter + gasPaid - balanceBefore).to.equal(reserveDeposit);
     expect(await synthx.reserveShares(owner.address)).to.equal(0n);
   });
+  });
+
+  describe("Minting and Burning constraints", function () {
+    it("reverts minting if msg.value is 0", async function () {
+      const [owner, user] = await ethers.getSigners();
+      const Synthx = await ethers.getContractFactory("Synthx");
+      const synthx = await Synthx.deploy();
+      await synthx.waitForDeployment();
+      await synthx.updatePrice("seur", ethers.parseEther("1.08"));
+
+      await expect(
+        synthx.connect(user).mintSynth("seur", 0)
+      ).to.be.revertedWith("Amount must be greater than 0");
+    });
+
+    it("reverts minting if price is not set (0)", async function () {
+      const [owner, user] = await ethers.getSigners();
+      const Synthx = await ethers.getContractFactory("Synthx");
+      const synthx = await Synthx.deploy();
+      await synthx.waitForDeployment();
+      // Price for 'sgbp' is not set
+
+      await expect(
+        synthx.connect(user).mintSynth("sgbp", ethers.parseEther("1"), { value: ethers.parseEther("1") })
+      ).to.be.revertedWith("Price not available");
+    });
+  });
 });

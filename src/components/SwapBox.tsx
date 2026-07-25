@@ -21,15 +21,16 @@ function isAsset(token: TokenType): token is Asset {
 
 interface SwapBoxProps {
   defaultReceive?: Asset
+  onAssetSelect?: (asset: Asset) => void
 }
 
-export default function SwapBox({ defaultReceive }: SwapBoxProps) {
+export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps) {
   const { isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
   const { writeContract, isPending } = useWriteContract()
 
-  // Hardcode FLR for 'You pay'
-  const [payToken] = useState<TokenType>(CRYPTO_TOKENS.find(t => t.symbol === 'FLR') || CRYPTO_TOKENS[0])
+  // Hardcode C2FLR as default for 'You pay'
+  const [payToken, setPayToken] = useState<TokenType>(CRYPTO_TOKENS.find(t => t.symbol === 'C2FLR') || CRYPTO_TOKENS[0])
   const [receiveToken, setReceiveToken] = useState<TokenType>(defaultReceive ?? ASSETS.find(a => a.id === 'seur') ?? ASSETS[0])
 
   // Fetch the ERC20 address of the currently selected receiveToken
@@ -69,6 +70,7 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
   // Default to 1 for FLR
   const [payAmount, setPayAmount] = useState('1')
   const [showReceiveModal, setShowReceiveModal] = useState(false)
+  const [showPayModal, setShowPayModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [slippage, setSlippage] = useState('0.5')
   const [isMinting, setIsMinting] = useState(true)
@@ -97,7 +99,18 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
             saud: 1 / parseFloat(rates.AUD),
             scad: 1 / parseFloat(rates.CAD),
             snzd: 1 / parseFloat(rates.NZD),
-            scny: 1 / parseFloat(rates.CNY)
+            scny: 1 / parseFloat(rates.CNY),
+            sinr: rates.INR ? 1 / parseFloat(rates.INR) : undefined,
+            smxn: rates.MXN ? 1 / parseFloat(rates.MXN) : undefined,
+            stry: rates.TRY ? 1 / parseFloat(rates.TRY) : undefined,
+            szar: rates.ZAR ? 1 / parseFloat(rates.ZAR) : undefined,
+            skrw: rates.KRW ? 1 / parseFloat(rates.KRW) : undefined,
+            sbrl: rates.BRL ? 1 / parseFloat(rates.BRL) : undefined,
+            sxau: 1 / parseFloat(rates.PAXG || rates.XAU),
+            sxag: rates.XAG ? 1 / parseFloat(rates.XAG) : 30.15,
+            c2flr: rates.FLR ? 1 / parseFloat(rates.FLR) : undefined,
+            usdt0: rates.USDT ? 1 / parseFloat(rates.USDT) : 1.0,
+            fxrp: rates.XRP ? 1 / parseFloat(rates.XRP) : undefined
           })
         }
       } catch (error) {
@@ -120,9 +133,18 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
   // Use live price if available, else use the static asset price
   // Type casting receiveToken to any to check id safely
   const currentTokenId = (receiveToken as any).id
-  const effectiveReceivePrice = (currentTokenId && livePrices[currentTokenId]) 
+  const hasLiveReceivePrice = currentTokenId && livePrices[currentTokenId] !== undefined
+  const effectiveReceivePrice = hasLiveReceivePrice 
     ? livePrices[currentTokenId] 
     : receiveToken.price
+    
+  const currentPayTokenId = payToken.symbol.toLowerCase()
+  const hasLivePayPrice = livePrices[currentPayTokenId] !== undefined
+  const effectivePayPrice = hasLivePayPrice
+    ? livePrices[currentPayTokenId]
+    : payToken.price
+
+  const isMarketClosed = !hasLiveReceivePrice || !hasLivePayPrice
 
   useEffect(() => {
     if (defaultReceive) {
@@ -139,8 +161,8 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
     ? (flrBalance ? parseFloat(formatEther(flrBalance.value)) : 0)
     : (synthBalance ? parseFloat(formatEther(synthBalance as bigint)) : 0)
 
-  const topPrice = isMinting ? payToken.price : effectiveReceivePrice
-  const bottomPrice = isMinting ? effectiveReceivePrice : payToken.price
+  const topPrice = isMinting ? effectivePayPrice : effectiveReceivePrice
+  const bottomPrice = isMinting ? effectiveReceivePrice : effectivePayPrice
 
   const receiveAmount = payAmount
     ? ((parseFloat(payAmount) * topPrice) / bottomPrice).toFixed(6)
@@ -255,12 +277,12 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
               {/* Token Selector */}
               <button
                 className="token-selector"
-                onClick={() => { if (!isMinting) setShowReceiveModal(true) }}
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-pill)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: isMinting ? 'default' : 'pointer', opacity: isMinting ? 0.9 : 1 }}
+                onClick={() => { if (isMinting) setShowPayModal(true); else setShowReceiveModal(true); }}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-pill)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', opacity: 1 }}
               >
                 <span style={{ fontSize: '1.1rem' }}>{topToken.icon}</span>
                 <span style={{ fontWeight: 700, fontSize: '0.85rem', fontFamily: 'var(--font-display)' }}>{topToken.symbol}</span>
-                <ChevronDown size={14} style={{ color: 'var(--text-muted)', visibility: isMinting ? 'hidden' : 'visible' }} />
+                <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -325,13 +347,13 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
               />
               <button
                 className="token-selector"
-                onClick={() => { if (isMinting) setShowReceiveModal(true) }}
+                onClick={() => { if (isMinting) setShowReceiveModal(true); else setShowPayModal(true); }}
                 id="receive-token-selector"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-pill)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: isMinting ? 'pointer' : 'default' }}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-pill)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
               >
                 <span style={{ fontSize: '1.1rem' }}>{bottomToken.icon}</span>
                 <span style={{ fontWeight: 700, fontSize: '0.85rem', fontFamily: 'var(--font-display)' }}>{bottomToken.symbol}</span>
-                <ChevronDown size={14} style={{ color: 'var(--text-muted)', visibility: isMinting ? 'visible' : 'hidden' }} />
+                <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -446,7 +468,7 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
           className="btn btn-primary btn-full btn-lg"
           style={{ marginTop: '14px', borderRadius: 'var(--radius-lg)' }}
           id="mint-btn"
-          disabled={isPending || hasInsufficientBurnLiquidity}
+          disabled={isPending || hasInsufficientBurnLiquidity || isMarketClosed}
           onClick={() => {
             if (!isConnected) {
               alert('Please connect your wallet first via the top right button!')
@@ -510,7 +532,9 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
             }
           }}
         >
-          {isPending 
+          {isMarketClosed
+            ? 'Market Closed (No Live Price)'
+            : isPending 
             ? 'Confirm in MetaMask...'
             : (payAmount && parseFloat(payAmount) > 0
               ? (isMinting
@@ -525,10 +549,22 @@ export default function SwapBox({ defaultReceive }: SwapBoxProps) {
       </div>
 
       {/* Modals */}
+      {showPayModal && (
+        <AssetModal
+          mode="pay"
+          onSelect={t => setPayToken(t)}
+          onClose={() => setShowPayModal(false)}
+        />
+      )}
       {showReceiveModal && (
         <AssetModal
           mode="receive"
-          onSelect={t => setReceiveToken(t)}
+          onSelect={t => {
+            setReceiveToken(t)
+            if (onAssetSelect && 'changePercent24h' in t) {
+              onAssetSelect(t as Asset)
+            }
+          }}
           onClose={() => setShowReceiveModal(false)}
         />
       )}

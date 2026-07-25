@@ -8,6 +8,7 @@ import type { Asset, AssetCategory } from '../data/assets'
 import { ASSETS } from '../data/assets'
 import { useForexPrices } from '../hooks/useForexPrices'
 import { useFtsoPrice } from '../hooks/useFtsoPrice'
+import { useCoinbasePrices } from '../hooks/useCoinbasePrices'
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ function fmtTime(d: Date | null): string {
 
 // ─── Subpage config ───────────────────────────────────────────────────────────
 
-type SubPage = 'forex' | 'commodities' | 'bonds' | 'etfs' | 'metals'
+type SubPage = 'forex' | 'commodities'
 
 interface SubPageConfig {
   id: SubPage
@@ -78,42 +79,6 @@ const SUBPAGES: SubPageConfig[] = [
     gradientFrom: 'rgba(245,158,11,0.18)',
     gradientTo: 'rgba(239,68,68,0.06)',
     description: 'Trade synthetic gold, oil, agricultural goods and energy markets. Hedge real-world commodity exposure on-chain.',
-  },
-  {
-    id: 'bonds',
-    label: 'Bonds',
-    icon: <Landmark size={16} />,
-    category: 'bonds',
-    heroTitle: 'Government Bonds',
-    heroSubtitle: 'Fixed Income',
-    accentColor: '#10b981',
-    gradientFrom: 'rgba(16,185,129,0.16)',
-    gradientTo: 'rgba(6,182,212,0.06)',
-    description: 'Access US Treasury and global sovereign debt synthetics. Gain fixed-income exposure without custody friction.',
-  },
-  {
-    id: 'etfs',
-    label: 'ETFs',
-    icon: <PieChart size={16} />,
-    category: 'etfs',
-    heroTitle: 'Exchange-Traded Funds',
-    heroSubtitle: 'Index & Thematic',
-    accentColor: '#8b5cf6',
-    gradientFrom: 'rgba(139,92,246,0.18)',
-    gradientTo: 'rgba(236,72,153,0.06)',
-    description: 'Diversified exposure to global indices. Trade synthetic S&P 500, NASDAQ, and sector ETFs on-chain.',
-  },
-  {
-    id: 'metals',
-    label: 'Metals',
-    icon: <Coins size={16} />,
-    category: 'metals',
-    heroTitle: 'Precious Metals',
-    heroSubtitle: 'Commodities & Metals',
-    accentColor: '#fbbf24',
-    gradientFrom: 'rgba(251,191,36,0.18)',
-    gradientTo: 'rgba(251,191,36,0.06)',
-    description: 'Trade synthetic precious metals on-chain with instant pricing and deep liquidity.',
   },
 ]
 
@@ -238,8 +203,9 @@ function SubpageHero({
   ftsoLastUpdated: Date | null
 }) {
   const isForex = config.id === 'forex'
+  const isCommodities = config.id === 'commodities'
 
-  // Use live prices for forex if available, with FTSO override for sEUR/USD
+  // Use live prices for forex and commodities if available
   const enriched = assets.map(a => {
     let price = a.price
     if (isForex) {
@@ -248,6 +214,8 @@ function SubpageHero({
       } else {
         price = livePrices?.[a.id] ?? a.price
       }
+    } else if (isCommodities) {
+      price = livePrices?.[a.id] ?? a.price
     }
     return {
       ...a,
@@ -308,17 +276,17 @@ function SubpageHero({
             ))}
           </div>
 
-          {/* Live badge — only for forex */}
-          {isForex && onRefresh && (
+          {/* Live badge — for forex and commodities */}
+          {(isForex || isCommodities) && onRefresh && (
             <LiveBadge
               isLive={isLive ?? false}
               loading={loading ?? false}
               lastUpdated={lastUpdated ?? null}
               onRefresh={onRefresh}
-              ftsoPrice={ftsoPrice}
-              ftsoLoading={ftsoLoading}
-              ftsoError={ftsoError}
-              ftsoLastUpdated={ftsoLastUpdated}
+              ftsoPrice={isForex ? ftsoPrice : null}
+              ftsoLoading={isForex ? ftsoLoading : false}
+              ftsoError={isForex ? ftsoError : null}
+              ftsoLastUpdated={isForex ? ftsoLastUpdated : null}
             />
           )}
         </div>
@@ -330,12 +298,12 @@ function SubpageHero({
 // ─── Asset Table ──────────────────────────────────────────────────────────────
 
 function AssetTable({
-  assets, accentColor, isForex, livePrices,
+  assets, accentColor, activePage, livePrices,
   ftsoPrice, ftsoLoading, ftsoError
 }: {
   assets: Asset[]
   accentColor: string
-  isForex?: boolean
+  activePage: SubPage
   livePrices?: Record<string, number>
   ftsoPrice: number | null
   ftsoLoading: boolean
@@ -346,17 +314,17 @@ function AssetTable({
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'change' | 'volume'>('volume')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // Build enriched assets (inject live price for forex)
+  // Build enriched assets (inject live price for forex and commodities)
   const enriched = useMemo(() =>
     assets.map(a => {
       let price = a.price
       let isLivePrice = false
       let isFtso = false
 
-      if (isForex) {
-        price = livePrices?.[a.id] ?? a.price
-        isLivePrice = !!livePrices?.[a.id]
-        isFtso = isLivePrice
+      if ((activePage === 'forex' || activePage === 'commodities') && livePrices?.[a.id]) {
+        price = livePrices[a.id]
+        isLivePrice = true
+        isFtso = activePage === 'forex'
       }
 
       return {
@@ -366,7 +334,7 @@ function AssetTable({
         isFtso,
       }
     }),
-    [assets, isForex, livePrices]
+    [assets, activePage, livePrices]
   )
 
   const filtered = useMemo(() => {
@@ -404,7 +372,7 @@ function AssetTable({
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
           Showing <strong style={{ color: 'var(--text-primary)' }}>{filtered.length}</strong> of {assets.length} assets
-          {isForex && livePrices && Object.keys(livePrices).length > 0 && (
+          {(activePage === 'forex' || activePage === 'commodities') && livePrices && Object.keys(livePrices).length > 0 && (
             <span style={{ marginLeft: '8px', fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>
               · {Object.keys(livePrices).length} live prices
             </span>
@@ -612,6 +580,9 @@ export default function Markets() {
   // Live forex prices hook — always fetched, only used when on Forex tab
   const { prices: forexPrices, loading: fxLoading, isLive: fxLive, lastUpdated: fxUpdated, refresh: fxRefresh, error: fxError } = useForexPrices()
 
+  // Live Coinbase prices hook — used for commodities
+  const { prices: cbPrices, loading: cbLoading, isLive: cbLive, lastUpdated: cbUpdated, refresh: cbRefresh, error: cbError } = useCoinbasePrices()
+
   // Live FTSO price hook
   const { price: ftsoPrice, loading: ftsoLoading, error: ftsoError, lastUpdated: ftsoLastUpdated, refresh: ftsoRefresh } = useFtsoPrice()
 
@@ -621,23 +592,23 @@ export default function Markets() {
   const handleRefresh = async () => {
     if (activePage === 'forex') {
       await Promise.allSettled([fxRefresh(), ftsoRefresh()])
-    } else {
-      fxRefresh()
+    } else if (activePage === 'commodities') {
+      await cbRefresh()
     }
   }
 
   const isForex = activePage === 'forex'
 
-  // Memoize assets, using live FTSOv2 prices for forex assets
+  // Memoize assets, using live FTSOv2 prices for forex assets and coinbase for commodities
   const assets = useMemo(() => {
     const list = ASSETS.filter(a => a.category === config.category)
     return list.map(a => {
       return {
         ...a,
-        price: (isForex && forexPrices[a.id]) ? forexPrices[a.id] : a.price,
+        price: (isForex && forexPrices[a.id]) ? forexPrices[a.id] : (activePage === 'commodities' && cbPrices[a.id]) ? cbPrices[a.id] : a.price,
       }
     })
-  }, [config, isForex, forexPrices])
+  }, [config, isForex, activePage, forexPrices, cbPrices])
 
   const topGainers = useMemo(() => {
     return [...ASSETS].map(a => {
@@ -647,9 +618,15 @@ export default function Markets() {
           price: forexPrices[a.id] ?? a.price,
         }
       }
+      if (a.category === 'commodities') {
+        return {
+          ...a,
+          price: cbPrices[a.id] ?? a.price,
+        }
+      }
       return a
     }).sort((a, b) => b.changePercent24h - a.changePercent24h).slice(0, 3)
-  }, [forexPrices])
+  }, [forexPrices, cbPrices])
 
   const topLosers = useMemo(() => {
     return [...ASSETS].map(a => {
@@ -659,9 +636,15 @@ export default function Markets() {
           price: forexPrices[a.id] ?? a.price,
         }
       }
+      if (a.category === 'commodities') {
+        return {
+          ...a,
+          price: cbPrices[a.id] ?? a.price,
+        }
+      }
       return a
     }).sort((a, b) => a.changePercent24h - b.changePercent24h).slice(0, 3)
-  }, [forexPrices])
+  }, [forexPrices, cbPrices])
 
   return (
     <>
@@ -783,10 +766,10 @@ export default function Markets() {
         <SubpageHero
           config={config}
           assets={assets}
-          livePrices={isForex ? forexPrices : undefined}
-          isLive={fxLive}
-          loading={fxLoading}
-          lastUpdated={fxUpdated}
+          livePrices={isForex ? forexPrices : activePage === 'commodities' ? cbPrices : undefined}
+          isLive={isForex ? fxLive : cbLive}
+          loading={isForex ? fxLoading : cbLoading}
+          lastUpdated={isForex ? fxUpdated : cbUpdated}
           onRefresh={handleRefresh}
           ftsoPrice={ftsoPrice}
           ftsoLoading={ftsoLoading}
@@ -798,8 +781,8 @@ export default function Markets() {
         <AssetTable
           assets={assets}
           accentColor={config.accentColor}
-          isForex={isForex}
-          livePrices={isForex ? forexPrices : undefined}
+          activePage={activePage}
+          livePrices={isForex ? forexPrices : activePage === 'commodities' ? cbPrices : undefined}
           ftsoPrice={ftsoPrice}
           ftsoLoading={ftsoLoading}
           ftsoError={ftsoError}
