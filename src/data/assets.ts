@@ -1,4 +1,4 @@
-export type AssetCategory = 'forex';
+export type AssetCategory = 'forex' | 'commodities';
 
 export interface Asset {
   id: string;
@@ -13,6 +13,7 @@ export interface Asset {
   icon: string;
   color: string;
   sparkline: number[];
+  yahooSymbol: string;
   unit?: string;
   description?: string;
 }
@@ -41,6 +42,7 @@ export const ASSETS: Asset[] = [
     icon: '🇪🇺',
     color: '#003399',
     sparkline: generateSparkline(1.0842, 0.003),
+    yahooSymbol: 'EURUSD=X',
     description: 'Most traded currency pair globally',
   },
   {
@@ -56,6 +58,7 @@ export const ASSETS: Asset[] = [
     icon: '🇬🇧',
     color: '#012169',
     sparkline: generateSparkline(1.2701, 0.004),
+    yahooSymbol: 'GBPUSD=X',
     description: 'Sterling — the cable pair',
   },
   {
@@ -71,6 +74,7 @@ export const ASSETS: Asset[] = [
     icon: '🇯🇵',
     color: '#BC002D',
     sparkline: generateSparkline(157.42, 0.4),
+    yahooSymbol: 'JPY=X',
     description: 'Dollar-Yen — high-volume Asia pair',
   },
   {
@@ -86,6 +90,7 @@ export const ASSETS: Asset[] = [
     icon: '🇨🇭',
     color: '#FF0000',
     sparkline: generateSparkline(0.9012, 0.003),
+    yahooSymbol: 'CHF=X',
     description: 'Safe-haven Swiss Franc pair',
   },
   {
@@ -101,6 +106,7 @@ export const ASSETS: Asset[] = [
     icon: '🇦🇺',
     color: '#00008B',
     sparkline: generateSparkline(0.6578, 0.004),
+    yahooSymbol: 'AUDUSD=X',
     description: 'Aussie dollar commodity currency',
   },
   {
@@ -116,6 +122,7 @@ export const ASSETS: Asset[] = [
     icon: '🇨🇦',
     color: '#FF0000',
     sparkline: generateSparkline(1.3612, 0.004),
+    yahooSymbol: 'CAD=X',
     description: 'Loonie — oil-correlated pair',
   },
   {
@@ -131,6 +138,7 @@ export const ASSETS: Asset[] = [
     icon: '🇳🇿',
     color: '#00247D',
     sparkline: generateSparkline(0.6103, 0.003),
+    yahooSymbol: 'NZDUSD=X',
     description: 'Kiwi dollar Pacific pair',
   },
   {
@@ -146,21 +154,55 @@ export const ASSETS: Asset[] = [
     icon: '🇨🇳',
     color: '#DE2910',
     sparkline: generateSparkline(7.2541, 0.01),
+    yahooSymbol: 'CNY=X',
     description: 'Renminbi — key emerging market pair',
+  },
+  {
+    id: 'sxau',
+    symbol: 'sXAU/USD',
+    name: 'Gold / US Dollar',
+    category: 'commodities',
+    price: 2400.50,
+    change24h: 12.30,
+    changePercent24h: 0.51,
+    volume24h: 15_200_000,
+    marketCap: 210_000_000,
+    icon: '🥇',
+    color: '#FFD700',
+    sparkline: generateSparkline(2400.50, 5),
+    yahooSymbol: 'GC=F',
+    description: 'Synthetic Gold — safe haven asset',
+    unit: 'per oz',
+  },
+  {
+    id: 'sxag',
+    symbol: 'sXAG/USD',
+    name: 'Silver / US Dollar',
+    category: 'commodities',
+    price: 30.15,
+    change24h: -0.42,
+    changePercent24h: -1.37,
+    volume24h: 8_100_000,
+    marketCap: 95_000_000,
+    icon: '🥈',
+    color: '#C0C0C0',
+    sparkline: generateSparkline(30.15, 0.2),
+    yahooSymbol: 'SI=F',
+    description: 'Synthetic Silver — precious and industrial metal',
+    unit: 'per oz',
   }
 ];
 
 export const CRYPTO_TOKENS = [
-  { symbol: 'FLR', name: 'Flare (Collateral)', icon: '☀️', price: 1.00 },
-  { symbol: 'USDT', name: 'Tether', icon: '💚', price: 1.00 },
-  { symbol: 'ETH', name: 'Ethereum', icon: '🔷', price: 3821.45 },
-  { symbol: 'WBTC', name: 'Wrapped Bitcoin', icon: '🟠', price: 67420.00 },
-  { symbol: 'SNX', name: 'Synthetix Token', icon: '🟣', price: 3.24 },
+  { symbol: 'C2FLR', name: 'Coston2 Flare', icon: '☀️', price: 1.00 },
+  { symbol: 'USDT0', name: 'Tether (Testnet)', icon: '💵', price: 1.00 },
+  { symbol: 'FXRP', name: 'Flare XRP', icon: '✖️', price: 1.11 },
 ];
 
 export const CATEGORIES: { id: AssetCategory | 'all'; label: string; icon: string }[] = [
   { id: 'all', label: 'All Assets', icon: '🌐' },
   { id: 'forex', label: 'Forex', icon: '💱' },
+  { id: 'commodities', label: 'Commodities', icon: '📊' },
 ];
 
 export const PLATFORM_STATS = {

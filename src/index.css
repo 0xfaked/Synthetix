@@ -117,6 +117,14 @@ input {
   background: var(--accent-primary);
 }
 
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* ===== LAYOUT ===== */
 .container {
   max-width: 1200px;
@@ -985,6 +993,8 @@ input {
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .chart-price-large {

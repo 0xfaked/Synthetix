@@ -9,7 +9,6 @@ import Home from './pages/Home'
 import Trade from './pages/Trade'
 import Markets from './pages/Markets'
 import Portfolio from './pages/Portfolio'
-import Stake from './pages/Stake'
 
 const queryClient = new QueryClient()
 
@@ -26,7 +25,6 @@ export default function App() {
                 <Route path="/trade" element={<Trade />} />
                 <Route path="/markets" element={<Markets />} />
                 <Route path="/portfolio" element={<Portfolio />} />
-                <Route path="/stake" element={<Stake />} />
               </Routes>
               <Footer />
             </main>
