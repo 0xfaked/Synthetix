@@ -38,7 +38,7 @@ export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps)
     address: SYNTHX_CONTRACT_ADDRESS as `0x${string}`,
     abi: SYNTHX_ABI,
     functionName: 'synthTokens',
-    args: [receiveToken.id]
+    args: [(receiveToken as any).id]
   })
 
   // Fetch actual user balance for the Synth asset
@@ -46,7 +46,7 @@ export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps)
     address: (receiveTokenAddress as `0x${string}`) || '0x0000000000000000000000000000000000000000',
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: [useAccount().address]
+    args: [useAccount().address as `0x${string}`]
   })
   
   // Fetch actual user FLR balance
@@ -75,7 +75,7 @@ export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps)
   const [slippage, setSlippage] = useState('0.5')
   const [isMinting, setIsMinting] = useState(true)
   
-  const [livePrices, setLivePrices] = useState<Record<string, number>>({})
+  const [livePrices, setLivePrices] = useState<Record<string, any>>({})
 
   // Fetch real-time live prices using the Coinbase API (free, no API key, real-time updates)
   useEffect(() => {
@@ -185,9 +185,9 @@ export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps)
 
   const hasInsufficientBurnLiquidity = Boolean(
     !isMinting &&
-    contractLiquidity !== undefined &&
-    requiredLiquidity !== undefined &&
-    contractLiquidity < requiredLiquidity
+    contractLiquidity !== undefined && contractLiquidity !== null &&
+    requiredLiquidity !== undefined && requiredLiquidity !== null &&
+    (contractLiquidity as number) < (requiredLiquidity as number)
   )
 
   return (
@@ -482,7 +482,7 @@ export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps)
                 abi: SYNTHX_ABI,
                 functionName: 'mintSynth',
                 args: [
-                  receiveToken.id, 
+                  (receiveToken as any).id, 
                   parseEther(payAmount) 
                 ],
                 value: parseEther(payAmount)
@@ -493,10 +493,10 @@ export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps)
                     const providers = window.ethereum.providers || [window.ethereum];
                     const metaMaskProvider = providers.find((p: any) => p.isMetaMask && !p.isTrust && !p.isTrustWallet) || window.ethereum;
 
-                    const tokenSymbol = receiveToken.id === 'seur' ? 'sEUR' : 
-                                        receiveToken.id === 'sgbp' ? 'sGBP' : 
-                                        receiveToken.id === 'sjpy' ? 'sJPY' : 
-                                        receiveToken.id.toUpperCase();
+                    const tokenSymbol = (receiveToken as any).id === 'seur' ? 'sEUR' : 
+                                        (receiveToken as any).id === 'sgbp' ? 'sGBP' : 
+                                        (receiveToken as any).id === 'sjpy' ? 'sJPY' : 
+                                        (receiveToken as any).id.toUpperCase();
 
                     metaMaskProvider.request({
                       method: 'wallet_watchAsset',
@@ -520,7 +520,7 @@ export default function SwapBox({ defaultReceive, onAssetSelect }: SwapBoxProps)
                 abi: SYNTHX_ABI,
                 functionName: 'burnSynth',
                 args: [
-                  receiveToken.id, 
+                  (receiveToken as any).id, 
                   parseEther(payAmount) 
                 ],
               }, {
