@@ -113,7 +113,8 @@ export default function PriceChart({ asset }: PriceChartProps) {
           'MAX': { range: 'max', interval: '1mo', slice: 1000 }
         }[activeRange] || { range: '1d', interval: '30m', slice: 48 }
 
-        const url = `/api/yahoo/${asset.yahooSymbol}?interval=${params.interval}&range=${params.range}`
+        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${asset.yahooSymbol}?interval=${params.interval}&range=${params.range}`
+        const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`
         const res = await fetch(url)
         if (!res.ok) throw new Error('Network error')
         const json = await res.json()
