@@ -42,7 +42,7 @@ export default function Portfolio() {
   const { data: tokenAddresses } = useReadContracts({
     contracts: ASSETS.map(a => ({
       address: SYNTHX_CONTRACT_ADDRESS as `0x${string}`,
-      abi: SYNTHX_ABI,
+      abi: SYNTHX_ABI as any,
       functionName: 'synthTokens',
       args: [a.id]
     }))
@@ -52,9 +52,9 @@ export default function Portfolio() {
   const { data: balancesData } = useReadContracts({
     contracts: ASSETS.map((a, i) => ({
       address: (tokenAddresses?.[i]?.result as `0x${string}`) || '0x0000000000000000000000000000000000000000',
-      abi: ERC20_ABI,
+      abi: ERC20_ABI as any,
       functionName: 'balanceOf',
-      args: [address]
+      args: [address as `0x${string}`]
     }))
   })
 
@@ -63,7 +63,7 @@ export default function Portfolio() {
     address: SYNTHX_CONTRACT_ADDRESS as `0x${string}`,
     abi: SYNTHX_ABI,
     functionName: 'collateralBalances',
-    args: [address]
+    args: [address as `0x${string}`]
   })
   
   const { writeContract, isPending: isWithdrawing } = useWriteContract()
